@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 
 const CART_STORAGE_KEY = 'tienda-cart'
+const USERS_STORAGE_KEY = 'tienda-users'
+const SESSION_STORAGE_KEY = 'tienda-session'
 
 const PRODUCTS = [
   {
@@ -71,6 +73,23 @@ const PRODUCTS = [
 ]
 
 function App() {
+  const [authMode, setAuthMode] = useState('login')
+  const [authForm, setAuthForm] = useState({ name: '', email: '', password: '' })
+  const [authError, setAuthError] = useState('')
+  const [authSuccess, setAuthSuccess] = useState('')
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const savedSession = localStorage.getItem(SESSION_STORAGE_KEY)
+
+      if (!savedSession) {
+        return null
+      }
+
+      return JSON.parse(savedSession)
+    } catch {
+      return null
+    }
+  })
   const [selectedCategory, setSelectedCategory] = useState('Todas')
   const [isClearCartPromptOpen, setIsClearCartPromptOpen] = useState(false)
   const [cart, setCart] = useState(() => {
@@ -111,6 +130,134 @@ function App() {
   useEffect(() => {
     localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart))
   }, [cart])
+
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(currentUser))
+      return
+    }
+
+    localStorage.removeItem(SESSION_STORAGE_KEY)
+  }, [currentUser])
+
+  const getSavedUsers = () => {
+    try {
+      const savedUsers = localStorage.getItem(USERS_STORAGE_KEY)
+
+      if (!savedUsers) {
+        return []
+      }
+
+      const parsedUsers = JSON.parse(savedUsers)
+      return Array.isArray(parsedUsers) ? parsedUsers : []
+    } catch {
+      return []
+    }
+  }
+
+  const saveUsers = (users) => {
+    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users))
+  }
+
+  const resetAuthForm = () => {
+    setAuthForm({ name: '', email: '', password: '' })
+  }
+
+  const handleAuthInputChange = (event) => {
+    const { name, value } = event.target
+    setAuthForm((currentForm) => ({ ...currentForm, [name]: value }))
+    if (authError) {
+      setAuthError('')
+    }
+  }
+
+  const handleRegister = () => {
+    const name = authForm.name.trim()
+    const email = authForm.email.trim().toLowerCase()
+    const password = authForm.password.trim()
+
+    if (!name || !email || !password) {
+      setAuthSuccess('')
+      setAuthError('Completa todos los campos para registrarte.')
+      return
+    }
+
+    if (password.length < 8) {
+      setAuthSuccess('')
+      setAuthError('La contraseña debe tener al menos 8 caracteres.')
+      return
+    }
+
+    const users = getSavedUsers()
+    const exists = users.some((user) => user.email === email)
+
+    if (exists) {
+      setAuthSuccess('')
+      setAuthError('Ese correo ya está registrado.')
+      return
+    }
+
+    const newUser = {
+      id: Date.now(),
+      name,
+      email,
+      password,
+    }
+
+    saveUsers([...users, newUser])
+    setAuthMode('login')
+    setAuthForm({ name: '', email, password: '' })
+    setAuthError('')
+    setAuthSuccess('Registro exitoso. Ahora inicia sesión con tu correo y contraseña.')
+  }
+
+  const handleLogin = () => {
+    const email = authForm.email.trim().toLowerCase()
+    const password = authForm.password.trim()
+
+    if (!email || !password) {
+      setAuthSuccess('')
+      setAuthError('Ingresa correo y contraseña.')
+      return
+    }
+
+    const users = getSavedUsers()
+    const existingUser = users.find((user) => user.email === email && user.password === password)
+
+    if (!existingUser) {
+      setAuthSuccess('')
+      setAuthError('Credenciales inválidas.')
+      return
+    }
+
+    setCurrentUser({ id: existingUser.id, name: existingUser.name, email: existingUser.email })
+    setAuthError('')
+    setAuthSuccess('')
+    resetAuthForm()
+  }
+
+  const handleAuthSubmit = (event) => {
+    event.preventDefault()
+
+    if (authMode === 'register') {
+      handleRegister()
+      return
+    }
+
+    handleLogin()
+  }
+
+  const handleSwitchAuthMode = (mode) => {
+    setAuthMode(mode)
+    setAuthError('')
+    setAuthSuccess('')
+    resetAuthForm()
+  }
+
+  const handleLogout = () => {
+    setCurrentUser(null)
+    setIsClearCartPromptOpen(false)
+  }
 
   const handleAddToCart = (productToAdd) => {
     setCart((currentCart) => {
@@ -188,11 +335,88 @@ function App() {
     )
   }
 
+  if (!currentUser) {
+    return (
+      <main className="auth-page">
+        <section className="auth-card" aria-label="Autenticación de usuario">
+          <h1>Tienda de Ropa</h1>
+          <p>{authMode === 'login' ? 'Inicia sesión para continuar.' : 'Crea una cuenta para empezar.'}</p>
+
+          <div className="auth-tabs">
+            <button
+              type="button"
+              className={`auth-tab ${authMode === 'login' ? 'auth-tab--active' : ''}`}
+              onClick={() => handleSwitchAuthMode('login')}
+            >
+              Login
+            </button>
+            <button
+              type="button"
+              className={`auth-tab ${authMode === 'register' ? 'auth-tab--active' : ''}`}
+              onClick={() => handleSwitchAuthMode('register')}
+            >
+              Registro
+            </button>
+          </div>
+
+          <form className="auth-form" onSubmit={handleAuthSubmit}>
+            {authMode === 'register' && (
+              <label className="auth-field">
+                Nombre
+                <input
+                  type="text"
+                  name="name"
+                  value={authForm.name}
+                  onChange={handleAuthInputChange}
+                  placeholder="Tu nombre"
+                />
+              </label>
+            )}
+
+            <label className="auth-field">
+              Correo
+              <input
+                type="email"
+                name="email"
+                value={authForm.email}
+                onChange={handleAuthInputChange}
+                placeholder="correo@ejemplo.com"
+              />
+            </label>
+
+            <label className="auth-field">
+              Contraseña
+              <input
+                type="password"
+                name="password"
+                value={authForm.password}
+                onChange={handleAuthInputChange}
+                placeholder="********"
+              />
+            </label>
+
+            {authError && <p className="auth-error">{authError}</p>}
+            {authSuccess && <p className="auth-success">{authSuccess}</p>}
+
+            <button type="submit" className="auth-submit">
+              {authMode === 'login' ? 'Entrar' : 'Crear cuenta'}
+            </button>
+          </form>
+        </section>
+      </main>
+    )
+  }
+
   return (
     <main className="store">
       <header className="store__header">
-        <h1>Tienda de Ropa</h1>
-        <p>Explora nuestros productos y filtra por categoría.</p>
+        <div className="store__top">
+          <h1>Tienda de Ropa</h1>
+          <button type="button" className="logout-button" onClick={handleLogout}>
+            Cerrar sesión
+          </button>
+        </div>
+        <p>Bienvenida, {currentUser.name}. Explora nuestros productos y filtra por categoría.</p>
       </header>
 
       <section className="categories" aria-label="Categorías de producto">
