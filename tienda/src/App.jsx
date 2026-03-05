@@ -7,6 +7,7 @@ const SESSION_STORAGE_KEY = 'tienda-session'
 const PRODUCTS_STORAGE_KEY = 'tienda-products'
 const SORT_STORAGE_KEY = 'tienda-sort-order'
 const CATEGORY_STORAGE_KEY = 'tienda-selected-category'
+const REQUESTS_STORAGE_KEY = 'tienda-customer-requests'
 
 const DEFAULT_ADMIN_USER = {
   id: 999001,
@@ -137,6 +138,27 @@ function App() {
   const [productSuccess, setProductSuccess] = useState('')
   const [editingProductId, setEditingProductId] = useState(null)
   const [adminSearch, setAdminSearch] = useState('')
+  const [customerRequests, setCustomerRequests] = useState(() => {
+    try {
+      const savedRequests = localStorage.getItem(REQUESTS_STORAGE_KEY)
+
+      if (!savedRequests) {
+        return []
+      }
+
+      const parsedRequests = JSON.parse(savedRequests)
+      return Array.isArray(parsedRequests) ? parsedRequests : []
+    } catch {
+      return []
+    }
+  })
+  const [requestForm, setRequestForm] = useState({
+    type: 'pedido',
+    subject: '',
+    message: '',
+  })
+  const [requestError, setRequestError] = useState('')
+  const [requestSuccess, setRequestSuccess] = useState('')
 
   const [selectedCategory, setSelectedCategory] = useState(() => {
     const savedCategory = localStorage.getItem(CATEGORY_STORAGE_KEY)
@@ -228,6 +250,10 @@ function App() {
   useEffect(() => {
     localStorage.setItem(PRODUCTS_STORAGE_KEY, JSON.stringify(products))
   }, [products])
+
+  useEffect(() => {
+    localStorage.setItem(REQUESTS_STORAGE_KEY, JSON.stringify(customerRequests))
+  }, [customerRequests])
 
   useEffect(() => {
     localStorage.setItem(SORT_STORAGE_KEY, sortOrder)
@@ -548,6 +574,54 @@ function App() {
     }, 180)
   }
 
+  const handleRequestInputChange = (event) => {
+    const { name, value } = event.target
+    setRequestForm((currentForm) => ({ ...currentForm, [name]: value }))
+
+    if (requestError) {
+      setRequestError('')
+    }
+
+    if (requestSuccess) {
+      setRequestSuccess('')
+    }
+  }
+
+  const handleCreateRequest = (event) => {
+    event.preventDefault()
+
+    const subject = requestForm.subject.trim()
+    const message = requestForm.message.trim()
+
+    if (!subject || !message) {
+      setRequestSuccess('')
+      setRequestError('Completa asunto y detalle para enviar tu solicitud.')
+      return
+    }
+
+    const newRequest = {
+      id: Date.now(),
+      userId: currentUser.id,
+      userName: currentUser.name,
+      userEmail: currentUser.email,
+      type: requestForm.type,
+      subject,
+      message,
+      createdAt: new Date().toISOString(),
+    }
+
+    setCustomerRequests((currentRequests) => [newRequest, ...currentRequests])
+    setRequestForm({ type: 'pedido', subject: '', message: '' })
+    setRequestError('')
+    setRequestSuccess('Tu solicitud se envió correctamente. El administrador la revisará.')
+  }
+
+  const handleDeleteRequest = (requestId) => {
+    setCustomerRequests((currentRequests) =>
+      currentRequests.filter((requestItem) => requestItem.id !== requestId),
+    )
+  }
+
   const handleProductInputChange = (event) => {
     const { name, value } = event.target
     setProductForm((currentForm) => ({ ...currentForm, [name]: value }))
@@ -854,6 +928,82 @@ function App() {
           Restablecer filtros
         </button>
       </section>
+
+      {!isAdmin && (
+        <section className="request-section" aria-label="Comentarios y pedidos especiales">
+          <h2>¿No encuentras lo que buscas?</h2>
+          <p>Déjanos un comentario o un pedido especial para que el administrador lo revise.</p>
+
+          <form className="request-form" onSubmit={handleCreateRequest}>
+            <label>
+              Tipo
+              <select name="type" value={requestForm.type} onChange={handleRequestInputChange}>
+                <option value="pedido">Pedido especial</option>
+                <option value="comentario">Comentario</option>
+              </select>
+            </label>
+
+            <label>
+              Asunto
+              <input
+                type="text"
+                name="subject"
+                placeholder="Ej: Busco chaqueta roja talla M"
+                value={requestForm.subject}
+                onChange={handleRequestInputChange}
+              />
+            </label>
+
+            <label>
+              Detalle
+              <textarea
+                name="message"
+                rows="3"
+                placeholder="Cuéntanos qué necesitas o tu comentario"
+                value={requestForm.message}
+                onChange={handleRequestInputChange}
+              />
+            </label>
+
+            <button type="submit">Enviar solicitud</button>
+          </form>
+
+          {requestError && <p className="request-message request-message--error">{requestError}</p>}
+          {requestSuccess && <p className="request-message request-message--success">{requestSuccess}</p>}
+        </section>
+      )}
+
+      {isAdmin && (
+        <section className="admin-requests" aria-label="Solicitudes de clientes">
+          <h2>Solicitudes de clientes</h2>
+
+          {customerRequests.length === 0 ? (
+            <p className="admin-requests__empty">No hay solicitudes pendientes.</p>
+          ) : (
+            <ul className="admin-requests__list">
+              {customerRequests.map((requestItem) => (
+                <li key={requestItem.id} className="admin-requests__item">
+                  <div className="admin-requests__head">
+                    <span className="admin-requests__type">{requestItem.type}</span>
+                    <button
+                      type="button"
+                      className="admin-requests__delete"
+                      onClick={() => handleDeleteRequest(requestItem.id)}
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+                  <p className="admin-requests__subject">{requestItem.subject}</p>
+                  <p className="admin-requests__meta">
+                    De: {requestItem.userName} ({requestItem.userEmail})
+                  </p>
+                  <p className="admin-requests__message">{requestItem.message}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
 
       {showFiltersNotice && (
         <div
