@@ -4,8 +4,19 @@ import './App.css'
 const CART_STORAGE_KEY = 'tienda-cart'
 const USERS_STORAGE_KEY = 'tienda-users'
 const SESSION_STORAGE_KEY = 'tienda-session'
+const PRODUCTS_STORAGE_KEY = 'tienda-products'
+const SORT_STORAGE_KEY = 'tienda-sort-order'
+const CATEGORY_STORAGE_KEY = 'tienda-selected-category'
 
-const PRODUCTS = [
+const DEFAULT_ADMIN_USER = {
+  id: 999001,
+  name: 'Admin',
+  email: 'admin@tienda.com',
+  password: 'Admin123!',
+  role: 'admin',
+}
+
+const DEFAULT_PRODUCTS = [
   {
     id: 1,
     name: 'Camiseta básica blanca',
@@ -72,6 +83,12 @@ const PRODUCTS = [
   },
 ]
 
+const normalizeText = (value) =>
+  value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+
 function App() {
   const [authMode, setAuthMode] = useState('login')
   const [authForm, setAuthForm] = useState({ name: '', email: '', password: '' })
@@ -85,12 +102,54 @@ function App() {
         return null
       }
 
-      return JSON.parse(savedSession)
+      const parsedSession = JSON.parse(savedSession)
+      return parsedSession ? { ...parsedSession, role: parsedSession.role ?? 'user' } : null
     } catch {
       return null
     }
   })
-  const [selectedCategory, setSelectedCategory] = useState('Todas')
+
+  const [products, setProducts] = useState(() => {
+    try {
+      const savedProducts = localStorage.getItem(PRODUCTS_STORAGE_KEY)
+
+      if (!savedProducts) {
+        return DEFAULT_PRODUCTS
+      }
+
+      const parsedProducts = JSON.parse(savedProducts)
+      return Array.isArray(parsedProducts) && parsedProducts.length > 0
+        ? parsedProducts
+        : DEFAULT_PRODUCTS
+    } catch {
+      return DEFAULT_PRODUCTS
+    }
+  })
+
+  const [productForm, setProductForm] = useState({
+    name: '',
+    category: '',
+    price: '',
+    size: '',
+    image: '/images/camiseta-blanca.svg',
+  })
+  const [productError, setProductError] = useState('')
+  const [productSuccess, setProductSuccess] = useState('')
+  const [editingProductId, setEditingProductId] = useState(null)
+  const [adminSearch, setAdminSearch] = useState('')
+
+  const [selectedCategory, setSelectedCategory] = useState(() => {
+    const savedCategory = localStorage.getItem(CATEGORY_STORAGE_KEY)
+    return savedCategory ?? 'Todas'
+  })
+  const [sortOrder, setSortOrder] = useState(() => {
+    const savedSort = localStorage.getItem(SORT_STORAGE_KEY)
+    return savedSort ?? 'default'
+  })
+  const [showFiltersNotice, setShowFiltersNotice] = useState(false)
+  const [isFiltersNoticeClosing, setIsFiltersNoticeClosing] = useState(false)
+  const [filtersNoticeId, setFiltersNoticeId] = useState(0)
+  const [filtersNoticeFlashA, setFiltersNoticeFlashA] = useState(false)
   const [isClearCartPromptOpen, setIsClearCartPromptOpen] = useState(false)
   const [cart, setCart] = useState(() => {
     try {
@@ -108,14 +167,38 @@ function App() {
   })
 
   const categories = useMemo(() => {
-    const uniqueCategories = [...new Set(PRODUCTS.map((product) => product.category))]
+    const uniqueCategories = [...new Set(products.map((product) => product.category))]
     return ['Todas', ...uniqueCategories]
-  }, [])
+  }, [products])
 
   const filteredProducts =
     selectedCategory === 'Todas'
-      ? PRODUCTS
-      : PRODUCTS.filter((product) => product.category === selectedCategory)
+      ? products
+      : products.filter(
+          (product) => normalizeText(product.category) === normalizeText(selectedCategory),
+        )
+
+  const visibleProducts = useMemo(() => {
+    const search = normalizeText(adminSearch.trim())
+
+    if (!search || currentUser?.role !== 'admin') {
+      return filteredProducts
+    }
+
+    return filteredProducts.filter((product) => normalizeText(product.name).includes(search))
+  }, [adminSearch, filteredProducts, currentUser])
+
+  const displayedProducts = useMemo(() => {
+    if (sortOrder === 'price-asc') {
+      return [...visibleProducts].sort((firstProduct, secondProduct) => firstProduct.price - secondProduct.price)
+    }
+
+    if (sortOrder === 'price-desc') {
+      return [...visibleProducts].sort((firstProduct, secondProduct) => secondProduct.price - firstProduct.price)
+    }
+
+    return visibleProducts
+  }, [visibleProducts, sortOrder])
 
   const totalItems = useMemo(
     () => cart.reduce((accumulator, item) => accumulator + item.quantity, 0),
@@ -143,6 +226,30 @@ function App() {
   }, [cart])
 
   useEffect(() => {
+    localStorage.setItem(PRODUCTS_STORAGE_KEY, JSON.stringify(products))
+  }, [products])
+
+  useEffect(() => {
+    localStorage.setItem(SORT_STORAGE_KEY, sortOrder)
+  }, [sortOrder])
+
+  useEffect(() => {
+    localStorage.setItem(CATEGORY_STORAGE_KEY, selectedCategory)
+  }, [selectedCategory])
+
+  useEffect(() => {
+    if (!showFiltersNotice) {
+      return
+    }
+
+    const timeoutId = setTimeout(() => {
+      setShowFiltersNotice(false)
+    }, 2000)
+
+    return () => clearTimeout(timeoutId)
+  }, [showFiltersNotice, filtersNoticeId])
+
+  useEffect(() => {
     if (currentUser) {
       localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(currentUser))
       return
@@ -150,6 +257,43 @@ function App() {
 
     localStorage.removeItem(SESSION_STORAGE_KEY)
   }, [currentUser])
+
+  useEffect(() => {
+    if (selectedCategory === 'Todas') {
+      return
+    }
+
+    const categoryExists = products.some(
+      (product) => normalizeText(product.category) === normalizeText(selectedCategory),
+    )
+
+    if (!categoryExists) {
+      setSelectedCategory('Todas')
+    }
+  }, [products, selectedCategory])
+
+  useEffect(() => {
+    setCart((currentCart) =>
+      currentCart
+        .map((cartItem) => {
+          const existingProduct = products.find((product) => product.id === cartItem.id)
+
+          if (!existingProduct) {
+            return null
+          }
+
+          return {
+            ...cartItem,
+            name: existingProduct.name,
+            price: existingProduct.price,
+            category: existingProduct.category,
+            size: existingProduct.size,
+            image: existingProduct.image,
+          }
+        })
+        .filter(Boolean),
+    )
+  }, [products])
 
   const getSavedUsers = () => {
     try {
@@ -169,6 +313,21 @@ function App() {
   const saveUsers = (users) => {
     localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users))
   }
+
+  const ensureAdminUser = () => {
+    const users = getSavedUsers()
+    const adminExists = users.some((user) => user.email === DEFAULT_ADMIN_USER.email)
+
+    if (adminExists) {
+      return
+    }
+
+    saveUsers([...users, DEFAULT_ADMIN_USER])
+  }
+
+  useEffect(() => {
+    ensureAdminUser()
+  }, [])
 
   const resetAuthForm = () => {
     setAuthForm({ name: '', email: '', password: '' })
@@ -231,6 +390,7 @@ function App() {
       name,
       email,
       password,
+      role: 'user',
     }
 
     saveUsers([...users, newUser])
@@ -259,7 +419,12 @@ function App() {
       return
     }
 
-    setCurrentUser({ id: existingUser.id, name: existingUser.name, email: existingUser.email })
+    setCurrentUser({
+      id: existingUser.id,
+      name: existingUser.name,
+      email: existingUser.email,
+      role: existingUser.role ?? 'user',
+    })
     setAuthError('')
     setAuthSuccess('')
     resetAuthForm()
@@ -364,12 +529,137 @@ function App() {
     )
   }
 
+  const handleResetFilters = () => {
+    setSelectedCategory('Todas')
+    setSortOrder('default')
+    setAdminSearch('')
+    setIsFiltersNoticeClosing(false)
+    setShowFiltersNotice(true)
+    setFiltersNoticeId((currentId) => currentId + 1)
+    setFiltersNoticeFlashA((currentValue) => !currentValue)
+  }
+
+  const handleCloseFiltersNotice = () => {
+    setIsFiltersNoticeClosing(true)
+
+    setTimeout(() => {
+      setShowFiltersNotice(false)
+      setIsFiltersNoticeClosing(false)
+    }, 180)
+  }
+
+  const handleProductInputChange = (event) => {
+    const { name, value } = event.target
+    setProductForm((currentForm) => ({ ...currentForm, [name]: value }))
+
+    if (productError) {
+      setProductError('')
+    }
+
+    if (productSuccess) {
+      setProductSuccess('')
+    }
+  }
+
+  const resetProductForm = () => {
+    setProductForm({
+      name: '',
+      category: '',
+      price: '',
+      size: '',
+      image: '/images/camiseta-blanca.svg',
+    })
+  }
+
+  const handleCreateProduct = (event) => {
+    event.preventDefault()
+
+    const name = productForm.name.trim()
+    const category = productForm.category.trim()
+    const size = productForm.size.trim()
+    const image = productForm.image.trim()
+    const price = Number.parseFloat(productForm.price)
+
+    if (!name || !category || !size || !image || Number.isNaN(price) || price <= 0) {
+      setProductSuccess('')
+      setProductError('Completa todos los campos del producto correctamente.')
+      return
+    }
+
+    if (editingProductId) {
+      setProducts((currentProducts) =>
+        currentProducts.map((product) =>
+          product.id === editingProductId
+            ? { ...product, name, category, price, size, image }
+            : product,
+        ),
+      )
+      setEditingProductId(null)
+      resetProductForm()
+      setProductError('')
+      setProductSuccess('Producto actualizado correctamente.')
+      return
+    }
+
+    const newProduct = {
+      id: Date.now(),
+      name,
+      category,
+      price,
+      size,
+      image,
+    }
+
+    setProducts((currentProducts) => [newProduct, ...currentProducts])
+    resetProductForm()
+    setProductError('')
+    setProductSuccess('Producto añadido correctamente.')
+  }
+
+  const handleStartEditProduct = (product) => {
+    setEditingProductId(product.id)
+    setProductForm({
+      name: product.name,
+      category: product.category,
+      price: product.price.toString(),
+      size: product.size,
+      image: product.image,
+    })
+    setProductError('')
+    setProductSuccess('')
+  }
+
+  const handleCancelEditProduct = () => {
+    setEditingProductId(null)
+    resetProductForm()
+    setProductError('')
+    setProductSuccess('')
+  }
+
+  const handleDeleteProduct = (productId, productName) => {
+    const confirmed = window.confirm(`¿Seguro que quieres borrar "${productName}"?`)
+
+    if (!confirmed) {
+      return
+    }
+
+    setProducts((currentProducts) => currentProducts.filter((product) => product.id !== productId))
+    setCart((currentCart) => currentCart.filter((item) => item.id !== productId))
+
+    if (editingProductId === productId) {
+      handleCancelEditProduct()
+    }
+  }
+
+  const isAdmin = currentUser?.role === 'admin'
+
   if (!currentUser) {
     return (
       <main className="auth-page">
         <section className="auth-card" aria-label="Autenticación de usuario">
           <h1>Tienda de Ropa</h1>
           <p>{authMode === 'login' ? 'Inicia sesión para continuar.' : 'Crea una cuenta para empezar.'}</p>
+          <p className="auth-admin-hint">Admin: admin@tienda.com / Admin123!</p>
 
           <div className="auth-tabs">
             <button
@@ -462,12 +752,79 @@ function App() {
       <header className="store__header">
         <div className="store__top">
           <h1>Tienda de Ropa</h1>
-          <button type="button" className="logout-button" onClick={handleLogout}>
-            Cerrar sesión
-          </button>
+          <div className="store__user-actions">
+            {isAdmin && <span className="admin-badge">Admin</span>}
+            <button type="button" className="logout-button" onClick={handleLogout}>
+              Cerrar sesión
+            </button>
+          </div>
         </div>
         <p>Bienvenida, {currentUser.name}. Explora nuestros productos y filtra por categoría.</p>
       </header>
+
+      {isAdmin && (
+        <section className="admin-panel" aria-label="Gestión de productos">
+          <h2>Panel de administrador {editingProductId ? '- Editando producto' : ''}</h2>
+          <form className="admin-form" onSubmit={handleCreateProduct}>
+            <input
+              type="text"
+              name="name"
+              placeholder="Nombre del producto"
+              value={productForm.name}
+              onChange={handleProductInputChange}
+            />
+            <input
+              type="text"
+              name="category"
+              placeholder="Categoría"
+              value={productForm.category}
+              onChange={handleProductInputChange}
+            />
+            <input
+              type="number"
+              name="price"
+              placeholder="Precio"
+              min="0"
+              step="0.01"
+              value={productForm.price}
+              onChange={handleProductInputChange}
+            />
+            <input
+              type="text"
+              name="size"
+              placeholder="Tallas (ej: S - XL)"
+              value={productForm.size}
+              onChange={handleProductInputChange}
+            />
+            <input
+              type="text"
+              name="image"
+              placeholder="Ruta de imagen (ej: /images/ropa.svg)"
+              value={productForm.image}
+              onChange={handleProductInputChange}
+            />
+            <button type="submit">{editingProductId ? 'Guardar cambios' : 'Añadir producto'}</button>
+            {editingProductId && (
+              <button type="button" className="admin-cancel-button" onClick={handleCancelEditProduct}>
+                Cancelar edición
+              </button>
+            )}
+          </form>
+          {productError && <p className="admin-message admin-message--error">{productError}</p>}
+          {productSuccess && <p className="admin-message admin-message--success">{productSuccess}</p>}
+
+          <div className="admin-search">
+            <label htmlFor="admin-search-input">Buscar producto por nombre</label>
+            <input
+              id="admin-search-input"
+              type="text"
+              placeholder="Ej: camiseta"
+              value={adminSearch}
+              onChange={(event) => setAdminSearch(event.target.value)}
+            />
+          </div>
+        </section>
+      )}
 
       <section className="categories" aria-label="Categorías de producto">
         {categories.map((category) => (
@@ -482,19 +839,79 @@ function App() {
         ))}
       </section>
 
+      <section className="sort" aria-label="Orden de productos">
+        <label htmlFor="sort-select">Ordenar por precio</label>
+        <select
+          id="sort-select"
+          value={sortOrder}
+          onChange={(event) => setSortOrder(event.target.value)}
+        >
+          <option value="default">Sin ordenar</option>
+          <option value="price-asc">Menor a mayor</option>
+          <option value="price-desc">Mayor a menor</option>
+        </select>
+        <button type="button" className="reset-filters-button" onClick={handleResetFilters}>
+          Restablecer filtros
+        </button>
+      </section>
+
+      {showFiltersNotice && (
+        <div
+          className={`filters-notice ${
+            isFiltersNoticeClosing ? 'filters-notice--closing' : filtersNoticeFlashA ? 'filters-notice--flash-a' : 'filters-notice--flash-b'
+          }`}
+          role="status"
+          aria-live="polite"
+        >
+          <span>Filtros restablecidos.</span>
+          <button
+            type="button"
+            className="filters-notice__close"
+            onClick={handleCloseFiltersNotice}
+            aria-label="Cerrar aviso"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       <section className="products" aria-label="Listado de productos">
-        {filteredProducts.map((product) => (
+        {displayedProducts.map((product) => (
           <article key={product.id} className="product-card">
             <img src={product.image} alt={product.name} className="product-image" />
             <h2>{product.name}</h2>
             <p className="product-meta">Categoría: {product.category}</p>
             <p className="product-meta">Tallas: {product.size}</p>
             <p className="product-price">${product.price.toFixed(2)}</p>
-            <button type="button" className="add-button" onClick={() => handleAddToCart(product)}>
-              Agregar al carrito
-            </button>
+            <div className="product-card__actions">
+              <button type="button" className="add-button" onClick={() => handleAddToCart(product)}>
+                Agregar al carrito
+              </button>
+              {isAdmin && (
+                <>
+                  <button
+                    type="button"
+                    className="admin-edit-button"
+                    onClick={() => handleStartEditProduct(product)}
+                  >
+                    Editar
+                  </button>
+                  <button
+                    type="button"
+                    className="admin-delete-button"
+                    onClick={() => handleDeleteProduct(product.id, product.name)}
+                  >
+                    Borrar producto
+                  </button>
+                </>
+              )}
+            </div>
           </article>
         ))}
+
+        {displayedProducts.length === 0 && (
+          <p className="products-empty">No hay productos que coincidan con la búsqueda.</p>
+        )}
       </section>
 
       <section className="cart" aria-label="Carrito de compras">
