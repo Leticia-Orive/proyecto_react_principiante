@@ -127,6 +127,17 @@ function App() {
     [cart],
   )
 
+  const passwordChecks = useMemo(() => {
+    const password = authForm.password
+
+    return {
+      minLength: password.length >= 8,
+      hasNumber: /\d/.test(password),
+      hasUppercase: /[A-Z]/.test(password),
+      hasSymbol: /[^A-Za-z0-9]/.test(password),
+    }
+  }, [authForm.password])
+
   useEffect(() => {
     localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart))
   }, [cart])
@@ -174,7 +185,7 @@ function App() {
   const handleRegister = () => {
     const name = authForm.name.trim()
     const email = authForm.email.trim().toLowerCase()
-    const password = authForm.password.trim()
+    const password = authForm.password
 
     if (!name || !email || !password) {
       setAuthSuccess('')
@@ -182,9 +193,27 @@ function App() {
       return
     }
 
-    if (password.length < 8) {
+    if (!passwordChecks.minLength) {
       setAuthSuccess('')
       setAuthError('La contraseña debe tener al menos 8 caracteres.')
+      return
+    }
+
+    if (!passwordChecks.hasNumber) {
+      setAuthSuccess('')
+      setAuthError('La contraseña debe incluir al menos 1 número.')
+      return
+    }
+
+    if (!passwordChecks.hasUppercase) {
+      setAuthSuccess('')
+      setAuthError('La contraseña debe incluir al menos 1 letra mayúscula.')
+      return
+    }
+
+    if (!passwordChecks.hasSymbol) {
+      setAuthSuccess('')
+      setAuthError('La contraseña debe incluir al menos 1 símbolo.')
       return
     }
 
@@ -394,6 +423,23 @@ function App() {
                 placeholder="********"
               />
             </label>
+
+            {authMode === 'register' && (
+              <ul className="password-rules" aria-label="Requisitos de contraseña">
+                <li className={`password-rule ${passwordChecks.minLength ? 'password-rule--done' : ''}`}>
+                  {passwordChecks.minLength ? '✓' : '✗'} Mínimo 8 caracteres
+                </li>
+                <li className={`password-rule ${passwordChecks.hasNumber ? 'password-rule--done' : ''}`}>
+                  {passwordChecks.hasNumber ? '✓' : '✗'} Al menos 1 número
+                </li>
+                <li className={`password-rule ${passwordChecks.hasUppercase ? 'password-rule--done' : ''}`}>
+                  {passwordChecks.hasUppercase ? '✓' : '✗'} Al menos 1 mayúscula
+                </li>
+                <li className={`password-rule ${passwordChecks.hasSymbol ? 'password-rule--done' : ''}`}>
+                  {passwordChecks.hasSymbol ? '✓' : '✗'} Al menos 1 símbolo
+                </li>
+              </ul>
+            )}
 
             {authError && <p className="auth-error">{authError}</p>}
             {authSuccess && <p className="auth-success">{authSuccess}</p>}
