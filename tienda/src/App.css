@@ -89,10 +89,22 @@
   transition: color 0.2s ease, transform 0.2s ease;
 }
 
+.password-rule__icon {
+  display: inline-block;
+  width: 1rem;
+  margin-right: 0.3rem;
+  color: #dc2626;
+  font-weight: 700;
+}
+
 .password-rule--done {
   color: #15803d;
   font-weight: 600;
   animation: password-rule-pop 0.28s ease;
+}
+
+.password-rule--done .password-rule__icon {
+  color: #16a34a;
 }
 
 @keyframes password-rule-pop {

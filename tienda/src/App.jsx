@@ -427,16 +427,20 @@ function App() {
             {authMode === 'register' && (
               <ul className="password-rules" aria-label="Requisitos de contraseña">
                 <li className={`password-rule ${passwordChecks.minLength ? 'password-rule--done' : ''}`}>
-                  {passwordChecks.minLength ? '✓' : '✗'} Mínimo 8 caracteres
+                  <span className="password-rule__icon">{passwordChecks.minLength ? '✓' : '✗'}</span>
+                  Mínimo 8 caracteres
                 </li>
                 <li className={`password-rule ${passwordChecks.hasNumber ? 'password-rule--done' : ''}`}>
-                  {passwordChecks.hasNumber ? '✓' : '✗'} Al menos 1 número
+                  <span className="password-rule__icon">{passwordChecks.hasNumber ? '✓' : '✗'}</span>
+                  Al menos 1 número
                 </li>
                 <li className={`password-rule ${passwordChecks.hasUppercase ? 'password-rule--done' : ''}`}>
-                  {passwordChecks.hasUppercase ? '✓' : '✗'} Al menos 1 mayúscula
+                  <span className="password-rule__icon">{passwordChecks.hasUppercase ? '✓' : '✗'}</span>
+                  Al menos 1 mayúscula
                 </li>
                 <li className={`password-rule ${passwordChecks.hasSymbol ? 'password-rule--done' : ''}`}>
-                  {passwordChecks.hasSymbol ? '✓' : '✗'} Al menos 1 símbolo
+                  <span className="password-rule__icon">{passwordChecks.hasSymbol ? '✓' : '✗'}</span>
+                  Al menos 1 símbolo
                 </li>
               </ul>
             )}
