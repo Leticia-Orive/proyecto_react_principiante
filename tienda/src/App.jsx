@@ -24,6 +24,9 @@ const DEFAULT_PRODUCTS = [
     category: 'Camisetas',
     price: 19.99,
     size: 'S - XL',
+    sizes: ['S', 'M', 'L', 'XL'],
+    description:
+      'Camiseta de algodón suave para uso diario. Corte regular, ligera y fácil de combinar con jeans o shorts.',
     image: '/images/camiseta-blanca.svg',
   },
   {
@@ -32,6 +35,9 @@ const DEFAULT_PRODUCTS = [
     category: 'Pantalones',
     price: 39.99,
     size: '36 - 46',
+    sizes: ['36', '38', '40', '42', '44', '46'],
+    description:
+      'Jeans rectos de tiro medio con tejido resistente y cómodo. Perfectos para looks casuales y urbanos.',
     image: '/images/jeans-azul.svg',
   },
   {
@@ -40,6 +46,9 @@ const DEFAULT_PRODUCTS = [
     category: 'Sudaderas',
     price: 34.99,
     size: 'M - XXL',
+    sizes: ['M', 'L', 'XL', 'XXL'],
+    description:
+      'Sudadera oversize con interior afelpado que aporta abrigo y confort, ideal para días frescos.',
     image: '/images/sudadera-gris.svg',
   },
   {
@@ -48,6 +57,9 @@ const DEFAULT_PRODUCTS = [
     category: 'Chaquetas',
     price: 54.99,
     size: 'S - XL',
+    sizes: ['S', 'M', 'L', 'XL'],
+    description:
+      'Chaqueta denim negra con acabado moderno y estructura firme. Una prenda versátil para todo el año.',
     image: '/images/chaqueta-denim.svg',
   },
   {
@@ -56,6 +68,9 @@ const DEFAULT_PRODUCTS = [
     category: 'Vestidos',
     price: 44.99,
     size: 'S - L',
+    sizes: ['S', 'M', 'L'],
+    description:
+      'Vestido midi floral de caída ligera, ideal para salidas de día o eventos informales.',
     image: '/images/vestido-floral.svg',
   },
   {
@@ -64,6 +79,9 @@ const DEFAULT_PRODUCTS = [
     category: 'Pantalones',
     price: 42.5,
     size: '38 - 46',
+    sizes: ['38', '40', '42', '44', '46'],
+    description:
+      'Pantalón cargo con bolsillos funcionales y ajuste cómodo, pensado para un estilo práctico y actual.',
     image: '/images/cargo-beige.svg',
   },
   {
@@ -72,6 +90,9 @@ const DEFAULT_PRODUCTS = [
     category: 'Camisetas',
     price: 22.5,
     size: 'S - XL',
+    sizes: ['S', 'M', 'L', 'XL'],
+    description:
+      'Camiseta estampada con diseño frontal, confeccionada en tejido transpirable para uso diario.',
     image: '/images/camiseta-estampada.svg',
   },
   {
@@ -80,6 +101,9 @@ const DEFAULT_PRODUCTS = [
     category: 'Chaquetas',
     price: 59.9,
     size: 'M - XXL',
+    sizes: ['M', 'L', 'XL', 'XXL'],
+    description:
+      'Chaqueta bomber con cierre frontal y puños elásticos, ideal para completar un look urbano.',
     image: '/images/bomber-oliva.svg',
   },
 ]
@@ -89,6 +113,57 @@ const normalizeText = (value) =>
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
+
+const parseSizeRange = (sizeText) => {
+  const trimmedSize = typeof sizeText === 'string' ? sizeText.trim() : ''
+
+  if (!trimmedSize.includes('-')) {
+    return trimmedSize ? [trimmedSize] : []
+  }
+
+  const [firstSizeRaw, lastSizeRaw] = trimmedSize.split('-').map((value) => value.trim())
+  const alphaScale = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL']
+  const firstAlphaIndex = alphaScale.indexOf(firstSizeRaw)
+  const lastAlphaIndex = alphaScale.indexOf(lastSizeRaw)
+
+  if (firstAlphaIndex >= 0 && lastAlphaIndex >= 0 && firstAlphaIndex <= lastAlphaIndex) {
+    return alphaScale.slice(firstAlphaIndex, lastAlphaIndex + 1)
+  }
+
+  const firstNumeric = Number.parseInt(firstSizeRaw, 10)
+  const lastNumeric = Number.parseInt(lastSizeRaw, 10)
+
+  if (Number.isInteger(firstNumeric) && Number.isInteger(lastNumeric) && firstNumeric <= lastNumeric) {
+    const sizes = []
+
+    for (let size = firstNumeric; size <= lastNumeric; size += 2) {
+      sizes.push(String(size))
+    }
+
+    return sizes
+  }
+
+  return [trimmedSize]
+}
+
+const hydrateProduct = (product) => {
+  const fallbackDescription = `Prenda de la categoría ${product.category} con diseño moderno y cómodo para uso diario.`
+  const sizes = Array.isArray(product.sizes) && product.sizes.length > 0 ? product.sizes : parseSizeRange(product.size)
+
+  return {
+    ...product,
+    sizes,
+    description: product.description?.trim() || fallbackDescription,
+  }
+}
+
+const getProductSizeOptions = (product) => {
+  if (Array.isArray(product.sizes) && product.sizes.length > 0) {
+    return product.sizes
+  }
+
+  return product.size ? [product.size] : []
+}
 
 function App() {
   const [authMode, setAuthMode] = useState('login')
@@ -120,7 +195,7 @@ function App() {
 
       const parsedProducts = JSON.parse(savedProducts)
       return Array.isArray(parsedProducts) && parsedProducts.length > 0
-        ? parsedProducts
+        ? parsedProducts.map((product) => hydrateProduct(product))
         : DEFAULT_PRODUCTS
     } catch {
       return DEFAULT_PRODUCTS
@@ -159,6 +234,8 @@ function App() {
   })
   const [requestError, setRequestError] = useState('')
   const [requestSuccess, setRequestSuccess] = useState('')
+  const [selectedProduct, setSelectedProduct] = useState(null)
+  const [selectedSizes, setSelectedSizes] = useState({})
 
   const [selectedCategory, setSelectedCategory] = useState(() => {
     const savedCategory = localStorage.getItem(CATEGORY_STORAGE_KEY)
@@ -308,6 +385,11 @@ function App() {
             return null
           }
 
+          const availableSizes = getProductSizeOptions(existingProduct)
+          const selectedSize = availableSizes.includes(cartItem.selectedSize)
+            ? cartItem.selectedSize
+            : availableSizes[0] ?? cartItem.selectedSize ?? existingProduct.size
+
           return {
             ...cartItem,
             name: existingProduct.name,
@@ -315,10 +397,27 @@ function App() {
             category: existingProduct.category,
             size: existingProduct.size,
             image: existingProduct.image,
+            selectedSize,
           }
         })
         .filter(Boolean),
     )
+  }, [products])
+
+  useEffect(() => {
+    setSelectedSizes((currentSelection) => {
+      const nextSelection = {}
+
+      products.forEach((product) => {
+        const availableSizes = getProductSizeOptions(product)
+        const currentSize = currentSelection[product.id]
+        nextSelection[product.id] = availableSizes.includes(currentSize)
+          ? currentSize
+          : availableSizes[0] ?? ''
+      })
+
+      return nextSelection
+    })
   }, [products])
 
   const getSavedUsers = () => {
@@ -479,23 +578,67 @@ function App() {
     setIsClearCartPromptOpen(false)
   }
 
-  const handleAddToCart = (productToAdd) => {
+  const handleSizeChange = (productId, size) => {
+    setSelectedSizes((currentSelection) => ({
+      ...currentSelection,
+      [productId]: size,
+    }))
+  }
+
+  const getSelectedSizeForProduct = (product) => {
+    const availableSizes = getProductSizeOptions(product)
+    const selectedSize = selectedSizes[product.id]
+
+    if (availableSizes.includes(selectedSize)) {
+      return selectedSize
+    }
+
+    return availableSizes[0] ?? ''
+  }
+
+  const handleAddToCart = (productToAdd, chosenSize) => {
     setCart((currentCart) => {
-      const existingProduct = currentCart.find((item) => item.id === productToAdd.id)
+      const existingProduct = currentCart.find(
+        (item) => item.id === productToAdd.id && item.selectedSize === chosenSize,
+      )
 
       if (existingProduct) {
         return currentCart.map((item) =>
-          item.id === productToAdd.id ? { ...item, quantity: item.quantity + 1 } : item,
+          item.id === productToAdd.id && item.selectedSize === chosenSize
+            ? { ...item, quantity: item.quantity + 1 }
+            : item,
         )
       }
 
-      return [...currentCart, { ...productToAdd, quantity: 1 }]
+      return [...currentCart, { ...productToAdd, selectedSize: chosenSize, quantity: 1 }]
     })
   }
 
-  const handleRemoveFromCart = (productId, productName, currentQuantity) => {
+  const handleOpenProductDetails = (product) => {
+    setSelectedProduct(product)
+  }
+
+  const handleCloseProductDetails = () => {
+    setSelectedProduct(null)
+  }
+
+  const handleBuyNow = (product, chosenSize) => {
+    const confirmed = window.confirm(
+      `Comprar ahora "${product.name}" talla ${chosenSize} por $${product.price.toFixed(2)} sin pasar por el carrito?`,
+    )
+
+    if (!confirmed) {
+      return
+    }
+
+    window.alert(
+      `Compra inmediata confirmada para "${product.name}" en talla ${chosenSize}. ¡Gracias por tu compra!`,
+    )
+  }
+
+  const handleRemoveFromCart = (productId, selectedSize, productName, currentQuantity) => {
     const value = window.prompt(
-      `¿Cuántos "${productName}" quieres borrar? (1-${currentQuantity})`,
+      `¿Cuántos "${productName}" talla ${selectedSize} quieres borrar? (1-${currentQuantity})`,
       '1',
     )
 
@@ -511,7 +654,7 @@ function App() {
 
     setCart((currentCart) =>
       currentCart.flatMap((item) => {
-        if (item.id !== productId) {
+        if (item.id !== productId || item.selectedSize !== selectedSize) {
           return [item]
         }
 
@@ -531,18 +674,20 @@ function App() {
     setIsClearCartPromptOpen(false)
   }
 
-  const handleIncreaseQuantity = (productId) => {
+  const handleIncreaseQuantity = (productId, selectedSize) => {
     setCart((currentCart) =>
       currentCart.map((item) =>
-        item.id === productId ? { ...item, quantity: item.quantity + 1 } : item,
+        item.id === productId && item.selectedSize === selectedSize
+          ? { ...item, quantity: item.quantity + 1 }
+          : item,
       ),
     )
   }
 
-  const handleDecreaseQuantity = (productId) => {
+  const handleDecreaseQuantity = (productId, selectedSize) => {
     setCart((currentCart) =>
       currentCart.flatMap((item) => {
-        if (item.id !== productId) {
+        if (item.id !== productId || item.selectedSize !== selectedSize) {
           return [item]
         }
 
@@ -661,11 +806,18 @@ function App() {
     }
 
     if (editingProductId) {
+      const updatedProduct = hydrateProduct({
+        id: editingProductId,
+        name,
+        category,
+        price,
+        size,
+        image,
+      })
+
       setProducts((currentProducts) =>
         currentProducts.map((product) =>
-          product.id === editingProductId
-            ? { ...product, name, category, price, size, image }
-            : product,
+          product.id === editingProductId ? { ...product, ...updatedProduct } : product,
         ),
       )
       setEditingProductId(null)
@@ -675,14 +827,14 @@ function App() {
       return
     }
 
-    const newProduct = {
+    const newProduct = hydrateProduct({
       id: Date.now(),
       name,
       category,
       price,
       size,
       image,
-    }
+    })
 
     setProducts((currentProducts) => [newProduct, ...currentProducts])
     resetProductForm()
@@ -1026,15 +1178,52 @@ function App() {
       )}
 
       <section className="products" aria-label="Listado de productos">
-        {displayedProducts.map((product) => (
+        {displayedProducts.map((product) => {
+          const availableSizes = getProductSizeOptions(product)
+          const selectedSize = getSelectedSizeForProduct(product)
+
+          return (
           <article key={product.id} className="product-card">
             <img src={product.image} alt={product.name} className="product-image" />
             <h2>{product.name}</h2>
             <p className="product-meta">Categoría: {product.category}</p>
             <p className="product-meta">Tallas: {product.size}</p>
+            <label className="size-selector">
+              Elegir talla
+              <select
+                value={selectedSize}
+                onChange={(event) => handleSizeChange(product.id, event.target.value)}
+              >
+                {availableSizes.map((sizeOption) => (
+                  <option key={`${product.id}-size-${sizeOption}`} value={sizeOption}>
+                    {sizeOption}
+                  </option>
+                ))}
+              </select>
+            </label>
             <p className="product-price">${product.price.toFixed(2)}</p>
             <div className="product-card__actions">
-              <button type="button" className="add-button" onClick={() => handleAddToCart(product)}>
+              <button
+                type="button"
+                className="details-button"
+                onClick={() => handleOpenProductDetails(product)}
+              >
+                Ver producto
+              </button>
+              {!isAdmin && (
+                <button
+                  type="button"
+                  className="buy-now-button"
+                  onClick={() => handleBuyNow(product, selectedSize)}
+                >
+                  Comprar ahora
+                </button>
+              )}
+              <button
+                type="button"
+                className="add-button"
+                onClick={() => handleAddToCart(product, selectedSize)}
+              >
                 Agregar al carrito
               </button>
               {isAdmin && (
@@ -1057,12 +1246,47 @@ function App() {
               )}
             </div>
           </article>
-        ))}
+          )
+        })}
 
         {displayedProducts.length === 0 && (
           <p className="products-empty">No hay productos que coincidan con la búsqueda.</p>
         )}
       </section>
+
+      {selectedProduct && (
+        <div className="product-modal" role="dialog" aria-modal="true" aria-label="Detalles del producto">
+          <div className="product-modal__content">
+            <button
+              type="button"
+              className="product-modal__close"
+              onClick={handleCloseProductDetails}
+              aria-label="Cerrar detalles"
+            >
+              ×
+            </button>
+            <img src={selectedProduct.image} alt={selectedProduct.name} className="product-modal__image" />
+            <h3>{selectedProduct.name}</h3>
+            <p className="product-modal__description">{selectedProduct.description}</p>
+            <p className="product-modal__price">Precio: ${selectedProduct.price.toFixed(2)}</p>
+            <p className="product-modal__sizes-title">Tallas disponibles:</p>
+            <ul className="product-modal__sizes">
+              {getProductSizeOptions(selectedProduct).map((sizeOption) => (
+                <li key={`${selectedProduct.id}-${sizeOption}`}>{sizeOption}</li>
+              ))}
+            </ul>
+            {!isAdmin && (
+              <button
+                type="button"
+                className="buy-now-button"
+                onClick={() => handleBuyNow(selectedProduct, getSelectedSizeForProduct(selectedProduct))}
+              >
+                Comprar ahora
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       <section className="cart" aria-label="Carrito de compras">
         <div className="cart__header">
@@ -1105,14 +1329,14 @@ function App() {
           <>
             <ul className="cart__list">
               {cart.map((item) => (
-                <li key={item.id} className="cart__item">
+                <li key={`${item.id}-${item.selectedSize}`} className="cart__item">
                   <div>
                     <p className="cart__name">{item.name}</p>
                     <div className="cart__quantity">
                       <button
                         type="button"
                         className="quantity-button"
-                        onClick={() => handleDecreaseQuantity(item.id)}
+                        onClick={() => handleDecreaseQuantity(item.id, item.selectedSize)}
                       >
                         -
                       </button>
@@ -1120,17 +1344,20 @@ function App() {
                       <button
                         type="button"
                         className="quantity-button"
-                        onClick={() => handleIncreaseQuantity(item.id)}
+                        onClick={() => handleIncreaseQuantity(item.id, item.selectedSize)}
                       >
                         +
                       </button>
                     </div>
+                    <p className="cart__meta">Talla elegida: {item.selectedSize}</p>
                     <p className="cart__meta">Precio unitario: ${item.price.toFixed(2)}</p>
                   </div>
                   <button
                     type="button"
                     className="remove-button"
-                    onClick={() => handleRemoveFromCart(item.id, item.name, item.quantity)}
+                    onClick={() =>
+                      handleRemoveFromCart(item.id, item.selectedSize, item.name, item.quantity)
+                    }
                   >
                     Eliminar
                   </button>
