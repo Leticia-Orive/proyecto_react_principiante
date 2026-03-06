@@ -8,6 +8,7 @@ const PRODUCTS_STORAGE_KEY = 'tienda-products'
 const SORT_STORAGE_KEY = 'tienda-sort-order'
 const CATEGORY_STORAGE_KEY = 'tienda-selected-category'
 const REQUESTS_STORAGE_KEY = 'tienda-customer-requests'
+const SEEN_REPLIES_STORAGE_KEY = 'tienda-seen-replies'
 
 const DEFAULT_ADMIN_USER = {
   id: 999001,
@@ -165,6 +166,20 @@ const getProductSizeOptions = (product) => {
   return product.size ? [product.size] : []
 }
 
+const hydrateCustomerRequest = (requestItem) => ({
+  ...requestItem,
+  adminReply: requestItem.adminReply?.trim() ?? '',
+  repliedAt: requestItem.repliedAt ?? null,
+})
+
+const formatDateTime = (value) => {
+  if (!value) {
+    return ''
+  }
+
+  return new Date(value).toLocaleString('es-ES')
+}
+
 function App() {
   const [authMode, setAuthMode] = useState('login')
   const [authForm, setAuthForm] = useState({ name: '', email: '', password: '' })
@@ -222,7 +237,9 @@ function App() {
       }
 
       const parsedRequests = JSON.parse(savedRequests)
-      return Array.isArray(parsedRequests) ? parsedRequests : []
+      return Array.isArray(parsedRequests)
+        ? parsedRequests.map((requestItem) => hydrateCustomerRequest(requestItem))
+        : []
     } catch {
       return []
     }
@@ -234,6 +251,7 @@ function App() {
   })
   const [requestError, setRequestError] = useState('')
   const [requestSuccess, setRequestSuccess] = useState('')
+  const [adminReplyDrafts, setAdminReplyDrafts] = useState({})
   const [selectedProduct, setSelectedProduct] = useState(null)
   const [selectedSizes, setSelectedSizes] = useState({})
 
@@ -249,6 +267,10 @@ function App() {
   const [isFiltersNoticeClosing, setIsFiltersNoticeClosing] = useState(false)
   const [filtersNoticeId, setFiltersNoticeId] = useState(0)
   const [filtersNoticeFlashA, setFiltersNoticeFlashA] = useState(false)
+  const [showReplyNotice, setShowReplyNotice] = useState(false)
+  const [isReplyNoticeClosing, setIsReplyNoticeClosing] = useState(false)
+  const [replyNoticeId, setReplyNoticeId] = useState(0)
+  const [replyNoticeCount, setReplyNoticeCount] = useState(0)
   const [isClearCartPromptOpen, setIsClearCartPromptOpen] = useState(false)
   const [cart, setCart] = useState(() => {
     try {
@@ -298,6 +320,11 @@ function App() {
 
     return visibleProducts
   }, [visibleProducts, sortOrder])
+
+  const myRequests = useMemo(
+    () => customerRequests.filter((requestItem) => requestItem.userId === currentUser?.id),
+    [customerRequests, currentUser],
+  )
 
   const totalItems = useMemo(
     () => cart.reduce((accumulator, item) => accumulator + item.quantity, 0),
@@ -351,6 +378,19 @@ function App() {
 
     return () => clearTimeout(timeoutId)
   }, [showFiltersNotice, filtersNoticeId])
+
+  useEffect(() => {
+    if (!showReplyNotice) {
+      return
+    }
+
+    const timeoutId = setTimeout(() => {
+      setShowReplyNotice(false)
+      setReplyNoticeCount(0)
+    }, 2800)
+
+    return () => clearTimeout(timeoutId)
+  }, [showReplyNotice, replyNoticeId])
 
   useEffect(() => {
     if (currentUser) {
@@ -419,6 +459,54 @@ function App() {
       return nextSelection
     })
   }, [products])
+
+  useEffect(() => {
+    if (!currentUser || currentUser.role === 'admin') {
+      return
+    }
+
+    const repliedRequests = customerRequests.filter(
+      (requestItem) =>
+        requestItem.userId === currentUser.id &&
+        requestItem.adminReply &&
+        requestItem.adminReply.trim() &&
+        requestItem.repliedAt,
+    )
+
+    if (repliedRequests.length === 0) {
+      return
+    }
+
+    const replySignatures = repliedRequests.map(
+      (requestItem) => `${requestItem.id}:${requestItem.repliedAt}`,
+    )
+
+    try {
+      const parsedSeenReplies = JSON.parse(localStorage.getItem(SEEN_REPLIES_STORAGE_KEY) ?? '{}')
+      const userSeenReplies = Array.isArray(parsedSeenReplies[currentUser.id])
+        ? parsedSeenReplies[currentUser.id]
+        : []
+      const seenRepliesSet = new Set(userSeenReplies)
+      const newReplies = replySignatures.filter((signature) => !seenRepliesSet.has(signature))
+
+      if (newReplies.length === 0) {
+        return
+      }
+
+      setReplyNoticeCount(newReplies.length)
+      setIsReplyNoticeClosing(false)
+      setShowReplyNotice(true)
+      setReplyNoticeId((currentId) => currentId + 1)
+
+      parsedSeenReplies[currentUser.id] = [...new Set([...userSeenReplies, ...newReplies])]
+      localStorage.setItem(SEEN_REPLIES_STORAGE_KEY, JSON.stringify(parsedSeenReplies))
+    } catch {
+      setReplyNoticeCount(1)
+      setIsReplyNoticeClosing(false)
+      setShowReplyNotice(true)
+      setReplyNoticeId((currentId) => currentId + 1)
+    }
+  }, [customerRequests, currentUser])
 
   const getSavedUsers = () => {
     try {
@@ -576,6 +664,8 @@ function App() {
   const handleLogout = () => {
     setCurrentUser(null)
     setIsClearCartPromptOpen(false)
+    setShowReplyNotice(false)
+    setReplyNoticeCount(0)
   }
 
   const handleSizeChange = (productId, size) => {
@@ -719,6 +809,16 @@ function App() {
     }, 180)
   }
 
+  const handleCloseReplyNotice = () => {
+    setIsReplyNoticeClosing(true)
+
+    setTimeout(() => {
+      setShowReplyNotice(false)
+      setIsReplyNoticeClosing(false)
+      setReplyNoticeCount(0)
+    }, 180)
+  }
+
   const handleRequestInputChange = (event) => {
     const { name, value } = event.target
     setRequestForm((currentForm) => ({ ...currentForm, [name]: value }))
@@ -753,12 +853,52 @@ function App() {
       subject,
       message,
       createdAt: new Date().toISOString(),
+      adminReply: '',
+      repliedAt: null,
     }
 
     setCustomerRequests((currentRequests) => [newRequest, ...currentRequests])
     setRequestForm({ type: 'pedido', subject: '', message: '' })
     setRequestError('')
     setRequestSuccess('Tu solicitud se envió correctamente. El administrador la revisará.')
+  }
+
+  const handleAdminReplyChange = (requestId, value) => {
+    setAdminReplyDrafts((currentDrafts) => ({
+      ...currentDrafts,
+      [requestId]: value,
+    }))
+  }
+
+  const getAdminReplyDraft = (requestItem) => {
+    const draftValue = adminReplyDrafts[requestItem.id]
+    return draftValue ?? requestItem.adminReply ?? ''
+  }
+
+  const handleReplyRequest = (requestId) => {
+    const requestToReply = customerRequests.find((requestItem) => requestItem.id === requestId)
+
+    if (!requestToReply) {
+      return
+    }
+
+    const replyText = getAdminReplyDraft(requestToReply).trim()
+
+    if (!replyText) {
+      return
+    }
+
+    setCustomerRequests((currentRequests) =>
+      currentRequests.map((requestItem) =>
+        requestItem.id === requestId
+          ? {
+              ...requestItem,
+              adminReply: replyText,
+              repliedAt: new Date().toISOString(),
+            }
+          : requestItem,
+      ),
+    )
   }
 
   const handleDeleteRequest = (requestId) => {
@@ -1122,6 +1262,37 @@ function App() {
 
           {requestError && <p className="request-message request-message--error">{requestError}</p>}
           {requestSuccess && <p className="request-message request-message--success">{requestSuccess}</p>}
+
+          <div className="my-requests">
+            <h3>Mis solicitudes y respuestas</h3>
+            {myRequests.length === 0 ? (
+              <p className="my-requests__empty">Aún no has enviado solicitudes.</p>
+            ) : (
+              <ul className="my-requests__list">
+                {myRequests.map((requestItem) => (
+                  <li key={requestItem.id} className="my-requests__item">
+                    <p className="my-requests__subject">{requestItem.subject}</p>
+                    <p className="my-requests__meta">
+                      Enviado el {formatDateTime(requestItem.createdAt)}
+                    </p>
+                    <p className="my-requests__message">{requestItem.message}</p>
+
+                    {requestItem.adminReply ? (
+                      <div className="my-requests__reply">
+                        <p className="my-requests__reply-title">Respuesta del administrador</p>
+                        <p className="my-requests__reply-message">{requestItem.adminReply}</p>
+                        <p className="my-requests__reply-meta">
+                          Respondido el {formatDateTime(requestItem.repliedAt)}
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="my-requests__pending">Pendiente de respuesta del administrador.</p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </section>
       )}
 
@@ -1150,6 +1321,31 @@ function App() {
                     De: {requestItem.userName} ({requestItem.userEmail})
                   </p>
                   <p className="admin-requests__message">{requestItem.message}</p>
+                  {requestItem.adminReply && (
+                    <div className="admin-requests__reply-preview">
+                      <p className="admin-requests__reply-title">Respuesta enviada</p>
+                      <p className="admin-requests__reply-message">{requestItem.adminReply}</p>
+                      <p className="admin-requests__reply-meta">
+                        Respondido el {formatDateTime(requestItem.repliedAt)}
+                      </p>
+                    </div>
+                  )}
+                  <label className="admin-requests__reply-form">
+                    {requestItem.adminReply ? 'Editar respuesta' : 'Responder mensaje'}
+                    <textarea
+                      rows="2"
+                      value={getAdminReplyDraft(requestItem)}
+                      onChange={(event) => handleAdminReplyChange(requestItem.id, event.target.value)}
+                      placeholder="Escribe la respuesta para el cliente"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="admin-requests__reply-button"
+                    onClick={() => handleReplyRequest(requestItem.id)}
+                  >
+                    {requestItem.adminReply ? 'Actualizar respuesta' : 'Enviar respuesta'}
+                  </button>
                 </li>
               ))}
             </ul>
@@ -1171,6 +1367,24 @@ function App() {
             className="filters-notice__close"
             onClick={handleCloseFiltersNotice}
             aria-label="Cerrar aviso"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      {showReplyNotice && !isAdmin && (
+        <div className={`reply-notice ${isReplyNoticeClosing ? 'reply-notice--closing' : ''}`} role="status" aria-live="polite">
+          <span>
+            {replyNoticeCount > 1
+              ? `Tienes ${replyNoticeCount} respuestas nuevas del administrador.`
+              : 'Tienes una respuesta nueva del administrador.'}
+          </span>
+          <button
+            type="button"
+            className="reply-notice__close"
+            onClick={handleCloseReplyNotice}
+            aria-label="Cerrar aviso de respuesta"
           >
             ×
           </button>
