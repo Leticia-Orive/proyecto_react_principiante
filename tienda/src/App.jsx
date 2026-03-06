@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import './App.css'
+import CartSection from './components/CartSection'
+import RequestsPanel from './components/RequestsPanel'
 
 const CART_STORAGE_KEY = 'tienda-cart'
 const USERS_STORAGE_KEY = 'tienda-users'
@@ -271,6 +273,11 @@ function App() {
   const [isReplyNoticeClosing, setIsReplyNoticeClosing] = useState(false)
   const [replyNoticeId, setReplyNoticeId] = useState(0)
   const [replyNoticeCount, setReplyNoticeCount] = useState(0)
+  const [showCartNotice, setShowCartNotice] = useState(false)
+  const [isCartNoticeClosing, setIsCartNoticeClosing] = useState(false)
+  const [cartNoticeId, setCartNoticeId] = useState(0)
+  const [cartNoticeText, setCartNoticeText] = useState('')
+  const [userView, setUserView] = useState('store')
   const [isClearCartPromptOpen, setIsClearCartPromptOpen] = useState(false)
   const [cart, setCart] = useState(() => {
     try {
@@ -286,6 +293,8 @@ function App() {
       return []
     }
   })
+
+  const isAdmin = currentUser?.role === 'admin'
 
   const categories = useMemo(() => {
     const uniqueCategories = [...new Set(products.map((product) => product.category))]
@@ -325,6 +334,20 @@ function App() {
     () => customerRequests.filter((requestItem) => requestItem.userId === currentUser?.id),
     [customerRequests, currentUser],
   )
+
+  const answeredRequestsCount = useMemo(
+    () => myRequests.filter((requestItem) => requestItem.adminReply).length,
+    [myRequests],
+  )
+
+  const pendingRequestsCount = useMemo(
+    () => customerRequests.filter((requestItem) => !requestItem.adminReply).length,
+    [customerRequests],
+  )
+
+  const isUserStoreView = !isAdmin && userView === 'store'
+  const isUserCartView = !isAdmin && userView === 'cart'
+  const isUserRequestsView = !isAdmin && userView === 'requests'
 
   const totalItems = useMemo(
     () => cart.reduce((accumulator, item) => accumulator + item.quantity, 0),
@@ -391,6 +414,19 @@ function App() {
 
     return () => clearTimeout(timeoutId)
   }, [showReplyNotice, replyNoticeId])
+
+  useEffect(() => {
+    if (!showCartNotice) {
+      return
+    }
+
+    const timeoutId = setTimeout(() => {
+      setShowCartNotice(false)
+      setCartNoticeText('')
+    }, 2200)
+
+    return () => clearTimeout(timeoutId)
+  }, [showCartNotice, cartNoticeId])
 
   useEffect(() => {
     if (currentUser) {
@@ -666,6 +702,21 @@ function App() {
     setIsClearCartPromptOpen(false)
     setShowReplyNotice(false)
     setReplyNoticeCount(0)
+    setShowCartNotice(false)
+    setCartNoticeText('')
+    setUserView('store')
+  }
+
+  const handleOpenCartView = () => {
+    setUserView('cart')
+  }
+
+  const handleOpenStoreView = () => {
+    setUserView('store')
+  }
+
+  const handleOpenRequestsView = () => {
+    setUserView('requests')
   }
 
   const handleSizeChange = (productId, size) => {
@@ -702,6 +753,11 @@ function App() {
 
       return [...currentCart, { ...productToAdd, selectedSize: chosenSize, quantity: 1 }]
     })
+
+    setIsCartNoticeClosing(false)
+    setCartNoticeText(`Agregado: ${productToAdd.name} talla ${chosenSize}`)
+    setShowCartNotice(true)
+    setCartNoticeId((currentId) => currentId + 1)
   }
 
   const handleOpenProductDetails = (product) => {
@@ -816,6 +872,16 @@ function App() {
       setShowReplyNotice(false)
       setIsReplyNoticeClosing(false)
       setReplyNoticeCount(0)
+    }, 180)
+  }
+
+  const handleCloseCartNotice = () => {
+    setIsCartNoticeClosing(true)
+
+    setTimeout(() => {
+      setShowCartNotice(false)
+      setIsCartNoticeClosing(false)
+      setCartNoticeText('')
     }, 180)
   }
 
@@ -1017,8 +1083,6 @@ function App() {
     }
   }
 
-  const isAdmin = currentUser?.role === 'admin'
-
   if (!currentUser) {
     return (
       <main className="auth-page">
@@ -1120,6 +1184,34 @@ function App() {
           <h1>Tienda de Ropa</h1>
           <div className="store__user-actions">
             {isAdmin && <span className="admin-badge">Admin</span>}
+            {isAdmin && <span className="status-badge">Pendientes: {pendingRequestsCount}</span>}
+            {!isAdmin && (
+              <button
+                type="button"
+                className={`status-badge status-badge--button ${isUserCartView ? 'status-badge--active' : ''}`}
+                onClick={handleOpenCartView}
+              >
+                Carrito: {totalItems}
+              </button>
+            )}
+            {!isAdmin && (
+              <button
+                type="button"
+                className={`status-badge status-badge--button ${isUserRequestsView ? 'status-badge--active' : ''}`}
+                onClick={handleOpenRequestsView}
+              >
+                Mensajes: {answeredRequestsCount}
+              </button>
+            )}
+            {!isAdmin && !isUserStoreView && (
+              <button
+                type="button"
+                className="status-badge status-badge--button"
+                onClick={handleOpenStoreView}
+              >
+                Volver a tienda
+              </button>
+            )}
             <button type="button" className="logout-button" onClick={handleLogout}>
               Cerrar sesión
             </button>
@@ -1192,165 +1284,55 @@ function App() {
         </section>
       )}
 
-      <section className="categories" aria-label="Categorías de producto">
-        {categories.map((category) => (
-          <button
-            key={category}
-            type="button"
-            className={`category-button ${selectedCategory === category ? 'category-button--active' : ''}`}
-            onClick={() => setSelectedCategory(category)}
-          >
-            {category}
-          </button>
-        ))}
-      </section>
-
-      <section className="sort" aria-label="Orden de productos">
-        <label htmlFor="sort-select">Ordenar por precio</label>
-        <select
-          id="sort-select"
-          value={sortOrder}
-          onChange={(event) => setSortOrder(event.target.value)}
-        >
-          <option value="default">Sin ordenar</option>
-          <option value="price-asc">Menor a mayor</option>
-          <option value="price-desc">Mayor a menor</option>
-        </select>
-        <button type="button" className="reset-filters-button" onClick={handleResetFilters}>
-          Restablecer filtros
-        </button>
-      </section>
-
-      {!isAdmin && (
-        <section className="request-section" aria-label="Comentarios y pedidos especiales">
-          <h2>¿No encuentras lo que buscas?</h2>
-          <p>Déjanos un comentario o un pedido especial para que el administrador lo revise.</p>
-
-          <form className="request-form" onSubmit={handleCreateRequest}>
-            <label>
-              Tipo
-              <select name="type" value={requestForm.type} onChange={handleRequestInputChange}>
-                <option value="pedido">Pedido especial</option>
-                <option value="comentario">Comentario</option>
-              </select>
-            </label>
-
-            <label>
-              Asunto
-              <input
-                type="text"
-                name="subject"
-                placeholder="Ej: Busco chaqueta roja talla M"
-                value={requestForm.subject}
-                onChange={handleRequestInputChange}
-              />
-            </label>
-
-            <label>
-              Detalle
-              <textarea
-                name="message"
-                rows="3"
-                placeholder="Cuéntanos qué necesitas o tu comentario"
-                value={requestForm.message}
-                onChange={handleRequestInputChange}
-              />
-            </label>
-
-            <button type="submit">Enviar solicitud</button>
-          </form>
-
-          {requestError && <p className="request-message request-message--error">{requestError}</p>}
-          {requestSuccess && <p className="request-message request-message--success">{requestSuccess}</p>}
-
-          <div className="my-requests">
-            <h3>Mis solicitudes y respuestas</h3>
-            {myRequests.length === 0 ? (
-              <p className="my-requests__empty">Aún no has enviado solicitudes.</p>
-            ) : (
-              <ul className="my-requests__list">
-                {myRequests.map((requestItem) => (
-                  <li key={requestItem.id} className="my-requests__item">
-                    <p className="my-requests__subject">{requestItem.subject}</p>
-                    <p className="my-requests__meta">
-                      Enviado el {formatDateTime(requestItem.createdAt)}
-                    </p>
-                    <p className="my-requests__message">{requestItem.message}</p>
-
-                    {requestItem.adminReply ? (
-                      <div className="my-requests__reply">
-                        <p className="my-requests__reply-title">Respuesta del administrador</p>
-                        <p className="my-requests__reply-message">{requestItem.adminReply}</p>
-                        <p className="my-requests__reply-meta">
-                          Respondido el {formatDateTime(requestItem.repliedAt)}
-                        </p>
-                      </div>
-                    ) : (
-                      <p className="my-requests__pending">Pendiente de respuesta del administrador.</p>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+      {(isAdmin || isUserStoreView) && (
+        <section className="categories" aria-label="Categorías de producto">
+          {categories.map((category) => (
+            <button
+              key={category}
+              type="button"
+              className={`category-button ${selectedCategory === category ? 'category-button--active' : ''}`}
+              onClick={() => setSelectedCategory(category)}
+            >
+              {category}
+            </button>
+          ))}
         </section>
       )}
 
-      {isAdmin && (
-        <section className="admin-requests" aria-label="Solicitudes de clientes">
-          <h2>Solicitudes de clientes</h2>
-
-          {customerRequests.length === 0 ? (
-            <p className="admin-requests__empty">No hay solicitudes pendientes.</p>
-          ) : (
-            <ul className="admin-requests__list">
-              {customerRequests.map((requestItem) => (
-                <li key={requestItem.id} className="admin-requests__item">
-                  <div className="admin-requests__head">
-                    <span className="admin-requests__type">{requestItem.type}</span>
-                    <button
-                      type="button"
-                      className="admin-requests__delete"
-                      onClick={() => handleDeleteRequest(requestItem.id)}
-                    >
-                      Eliminar
-                    </button>
-                  </div>
-                  <p className="admin-requests__subject">{requestItem.subject}</p>
-                  <p className="admin-requests__meta">
-                    De: {requestItem.userName} ({requestItem.userEmail})
-                  </p>
-                  <p className="admin-requests__message">{requestItem.message}</p>
-                  {requestItem.adminReply && (
-                    <div className="admin-requests__reply-preview">
-                      <p className="admin-requests__reply-title">Respuesta enviada</p>
-                      <p className="admin-requests__reply-message">{requestItem.adminReply}</p>
-                      <p className="admin-requests__reply-meta">
-                        Respondido el {formatDateTime(requestItem.repliedAt)}
-                      </p>
-                    </div>
-                  )}
-                  <label className="admin-requests__reply-form">
-                    {requestItem.adminReply ? 'Editar respuesta' : 'Responder mensaje'}
-                    <textarea
-                      rows="2"
-                      value={getAdminReplyDraft(requestItem)}
-                      onChange={(event) => handleAdminReplyChange(requestItem.id, event.target.value)}
-                      placeholder="Escribe la respuesta para el cliente"
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    className="admin-requests__reply-button"
-                    onClick={() => handleReplyRequest(requestItem.id)}
-                  >
-                    {requestItem.adminReply ? 'Actualizar respuesta' : 'Enviar respuesta'}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+      {(isAdmin || isUserStoreView) && (
+        <section className="sort" aria-label="Orden de productos">
+          <label htmlFor="sort-select">Ordenar por precio</label>
+          <select
+            id="sort-select"
+            value={sortOrder}
+            onChange={(event) => setSortOrder(event.target.value)}
+          >
+            <option value="default">Sin ordenar</option>
+            <option value="price-asc">Menor a mayor</option>
+            <option value="price-desc">Mayor a menor</option>
+          </select>
+          <button type="button" className="reset-filters-button" onClick={handleResetFilters}>
+            Restablecer filtros
+          </button>
         </section>
+      )}
+
+      {(isAdmin || isUserRequestsView) && (
+        <RequestsPanel
+          isAdmin={isAdmin}
+          requestForm={requestForm}
+          requestError={requestError}
+          requestSuccess={requestSuccess}
+          myRequests={myRequests}
+          customerRequests={customerRequests}
+          formatDateTime={formatDateTime}
+          onRequestInputChange={handleRequestInputChange}
+          onCreateRequest={handleCreateRequest}
+          onDeleteRequest={handleDeleteRequest}
+          getAdminReplyDraft={getAdminReplyDraft}
+          onAdminReplyChange={handleAdminReplyChange}
+          onReplyRequest={handleReplyRequest}
+        />
       )}
 
       {showFiltersNotice && (
@@ -1391,6 +1373,21 @@ function App() {
         </div>
       )}
 
+      {showCartNotice && !isAdmin && (
+        <div className={`cart-notice ${isCartNoticeClosing ? 'cart-notice--closing' : ''}`} role="status" aria-live="polite">
+          <span>{cartNoticeText}</span>
+          <button
+            type="button"
+            className="cart-notice__close"
+            onClick={handleCloseCartNotice}
+            aria-label="Cerrar aviso de carrito"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      {(isAdmin || isUserStoreView) && (
       <section className="products" aria-label="Listado de productos">
         {displayedProducts.map((product) => {
           const availableSizes = getProductSizeOptions(product)
@@ -1467,6 +1464,7 @@ function App() {
           <p className="products-empty">No hay productos que coincidan con la búsqueda.</p>
         )}
       </section>
+      )}
 
       {selectedProduct && (
         <div className="product-modal" role="dialog" aria-modal="true" aria-label="Detalles del producto">
@@ -1502,86 +1500,20 @@ function App() {
         </div>
       )}
 
-      <section className="cart" aria-label="Carrito de compras">
-        <div className="cart__header">
-          <h2>Carrito</h2>
-          <div className="cart__header-actions">
-            <span>{totalItems} producto(s)</span>
-            {cart.length > 0 && (
-              <button
-                type="button"
-                className="clear-button"
-                onClick={() => setIsClearCartPromptOpen(true)}
-              >
-                Vaciar carrito
-              </button>
-            )}
-          </div>
-        </div>
-
-        {isClearCartPromptOpen && cart.length > 0 && (
-          <div className="clear-confirmation" role="alert" aria-live="polite">
-            <p>¿Seguro que quieres vaciar el carrito?</p>
-            <div className="clear-confirmation__actions">
-              <button type="button" className="confirmation-button" onClick={handleClearCart}>
-                Confirmar
-              </button>
-              <button
-                type="button"
-                className="cancel-button"
-                onClick={() => setIsClearCartPromptOpen(false)}
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        )}
-
-        {cart.length === 0 ? (
-          <p className="cart__empty">Tu carrito está vacío.</p>
-        ) : (
-          <>
-            <ul className="cart__list">
-              {cart.map((item) => (
-                <li key={`${item.id}-${item.selectedSize}`} className="cart__item">
-                  <div>
-                    <p className="cart__name">{item.name}</p>
-                    <div className="cart__quantity">
-                      <button
-                        type="button"
-                        className="quantity-button"
-                        onClick={() => handleDecreaseQuantity(item.id, item.selectedSize)}
-                      >
-                        -
-                      </button>
-                      <span>{item.quantity}</span>
-                      <button
-                        type="button"
-                        className="quantity-button"
-                        onClick={() => handleIncreaseQuantity(item.id, item.selectedSize)}
-                      >
-                        +
-                      </button>
-                    </div>
-                    <p className="cart__meta">Talla elegida: {item.selectedSize}</p>
-                    <p className="cart__meta">Precio unitario: ${item.price.toFixed(2)}</p>
-                  </div>
-                  <button
-                    type="button"
-                    className="remove-button"
-                    onClick={() =>
-                      handleRemoveFromCart(item.id, item.selectedSize, item.name, item.quantity)
-                    }
-                  >
-                    Eliminar
-                  </button>
-                </li>
-              ))}
-            </ul>
-            <p className="cart__total">Total: ${totalPrice.toFixed(2)}</p>
-          </>
-        )}
-      </section>
+      {(isAdmin || isUserCartView) && (
+        <CartSection
+          cart={cart}
+          totalItems={totalItems}
+          totalPrice={totalPrice}
+          isClearCartPromptOpen={isClearCartPromptOpen}
+          onOpenClearPrompt={() => setIsClearCartPromptOpen(true)}
+          onClearCart={handleClearCart}
+          onCancelClearPrompt={() => setIsClearCartPromptOpen(false)}
+          onDecreaseQuantity={handleDecreaseQuantity}
+          onIncreaseQuantity={handleIncreaseQuantity}
+          onRemoveFromCart={handleRemoveFromCart}
+        />
+      )}
     </main>
   )
 }
