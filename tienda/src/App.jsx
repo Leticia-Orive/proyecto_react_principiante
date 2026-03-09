@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import './App.css'
 import CartSection from './components/CartSection'
 import RequestsPanel from './components/RequestsPanel'
@@ -11,6 +11,27 @@ const SORT_STORAGE_KEY = 'tienda-sort-order'
 const CATEGORY_STORAGE_KEY = 'tienda-selected-category'
 const REQUESTS_STORAGE_KEY = 'tienda-customer-requests'
 const SEEN_REPLIES_STORAGE_KEY = 'tienda-seen-replies'
+const DEFAULT_PRODUCT_IMAGE = '/images/camiseta-blanca.jpg'
+const AVAILABLE_PRODUCT_IMAGES = [
+  '/images/camiseta-blanca.jpg',
+  '/images/jeans-azul.avif',
+  '/images/sudadera-gris.png',
+  '/images/chaqueta-denim.avif',
+  '/images/vestido-floral.webp',
+  '/images/cargo-beige.jpg',
+  '/images/camiseta-estampada.webp',
+  '/images/bomber-oliva.webp',
+]
+const LEGACY_IMAGE_PATHS = {
+  '/images/camiseta-blanca.svg': '/images/camiseta-blanca.jpg',
+  '/images/jeans-azul.svg': '/images/jeans-azul.avif',
+  '/images/sudadera-gris.svg': '/images/sudadera-gris.png',
+  '/images/chaqueta-denim.svg': '/images/chaqueta-denim.avif',
+  '/images/vestido-floral.svg': '/images/vestido-floral.webp',
+  '/images/cargo-beige.svg': '/images/cargo-beige.jpg',
+  '/images/camiseta-estampada.svg': '/images/camiseta-estampada.webp',
+  '/images/bomber-oliva.svg': '/images/bomber-oliva.webp',
+}
 
 const DEFAULT_ADMIN_USER = {
   id: 999001,
@@ -30,7 +51,7 @@ const DEFAULT_PRODUCTS = [
     sizes: ['S', 'M', 'L', 'XL'],
     description:
       'Camiseta de algodón suave para uso diario. Corte regular, ligera y fácil de combinar con jeans o shorts.',
-    image: '/images/camiseta-blanca.svg',
+    image: '/images/camiseta-blanca.jpg',
   },
   {
     id: 2,
@@ -41,7 +62,7 @@ const DEFAULT_PRODUCTS = [
     sizes: ['36', '38', '40', '42', '44', '46'],
     description:
       'Jeans rectos de tiro medio con tejido resistente y cómodo. Perfectos para looks casuales y urbanos.',
-    image: '/images/jeans-azul.svg',
+    image: '/images/jeans-azul.avif',
   },
   {
     id: 3,
@@ -52,7 +73,7 @@ const DEFAULT_PRODUCTS = [
     sizes: ['M', 'L', 'XL', 'XXL'],
     description:
       'Sudadera oversize con interior afelpado que aporta abrigo y confort, ideal para días frescos.',
-    image: '/images/sudadera-gris.svg',
+    image: '/images/sudadera-gris.png',
   },
   {
     id: 4,
@@ -63,7 +84,7 @@ const DEFAULT_PRODUCTS = [
     sizes: ['S', 'M', 'L', 'XL'],
     description:
       'Chaqueta denim negra con acabado moderno y estructura firme. Una prenda versátil para todo el año.',
-    image: '/images/chaqueta-denim.svg',
+    image: '/images/chaqueta-denim.avif',
   },
   {
     id: 5,
@@ -74,7 +95,7 @@ const DEFAULT_PRODUCTS = [
     sizes: ['S', 'M', 'L'],
     description:
       'Vestido midi floral de caída ligera, ideal para salidas de día o eventos informales.',
-    image: '/images/vestido-floral.svg',
+    image: '/images/vestido-floral.webp',
   },
   {
     id: 6,
@@ -85,7 +106,7 @@ const DEFAULT_PRODUCTS = [
     sizes: ['38', '40', '42', '44', '46'],
     description:
       'Pantalón cargo con bolsillos funcionales y ajuste cómodo, pensado para un estilo práctico y actual.',
-    image: '/images/cargo-beige.svg',
+    image: '/images/cargo-beige.jpg',
   },
   {
     id: 7,
@@ -96,7 +117,7 @@ const DEFAULT_PRODUCTS = [
     sizes: ['S', 'M', 'L', 'XL'],
     description:
       'Camiseta estampada con diseño frontal, confeccionada en tejido transpirable para uso diario.',
-    image: '/images/camiseta-estampada.svg',
+    image: '/images/camiseta-estampada.webp',
   },
   {
     id: 8,
@@ -107,7 +128,7 @@ const DEFAULT_PRODUCTS = [
     sizes: ['M', 'L', 'XL', 'XXL'],
     description:
       'Chaqueta bomber con cierre frontal y puños elásticos, ideal para completar un look urbano.',
-    image: '/images/bomber-oliva.svg',
+    image: '/images/bomber-oliva.webp',
   },
 ]
 
@@ -116,6 +137,82 @@ const normalizeText = (value) =>
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
+
+const normalizeProductImagePath = (imagePath) => {
+  const rawPath = typeof imagePath === 'string' ? imagePath.trim() : ''
+
+  if (!rawPath) {
+    return DEFAULT_PRODUCT_IMAGE
+  }
+
+  if (/^https?:\/\//i.test(rawPath)) {
+    return rawPath
+  }
+
+  const directLegacyPath = LEGACY_IMAGE_PATHS[rawPath]
+
+  if (directLegacyPath) {
+    return directLegacyPath
+  }
+
+  if (rawPath.startsWith('data:image/')) {
+    return rawPath
+  }
+
+  const pathWithSlashes = rawPath.replace(/\\/g, '/')
+  const pathWithoutDots = pathWithSlashes.replace(/^\.?\//, '')
+
+  if (pathWithoutDots.startsWith('images/')) {
+    const normalizedLegacyPath = LEGACY_IMAGE_PATHS[`/${pathWithoutDots}`]
+    return normalizedLegacyPath ?? `/${pathWithoutDots}`
+  }
+
+  if (pathWithoutDots.startsWith('public/images/')) {
+    return `/${pathWithoutDots.replace('public/', '')}`
+  }
+
+  if (/^[A-Za-z]:\//.test(pathWithSlashes) || pathWithSlashes.includes('/')) {
+    const fileName = pathWithSlashes.split('/').pop()?.trim()
+
+    if (fileName) {
+      return `/images/${fileName}`
+    }
+  }
+
+  if (rawPath.startsWith('/images/')) {
+    return rawPath
+  }
+
+  if (rawPath.startsWith('images/')) {
+    return `/${rawPath}`
+  }
+
+  if (rawPath.startsWith('/public/images/')) {
+    return rawPath.replace('/public', '')
+  }
+
+  if (rawPath.startsWith('public/images/')) {
+    return `/${rawPath.replace('public/', '')}`
+  }
+
+  if (!rawPath.startsWith('/')) {
+    const candidatePath = `/images/${rawPath}`
+    return LEGACY_IMAGE_PATHS[candidatePath] ?? candidatePath
+  }
+
+  return rawPath
+}
+
+const resolveProductImageSrc = (imagePath) => {
+  const normalizedPath = normalizeProductImagePath(imagePath)
+
+  if (/^https?:\/\//i.test(normalizedPath) || normalizedPath.startsWith('data:image/')) {
+    return normalizedPath
+  }
+
+  const cleanPath = normalizedPath.replace(/^\//, '')
+  return `${import.meta.env.BASE_URL}${cleanPath}`
+}
 
 const parseSizeRange = (sizeText) => {
   const trimmedSize = typeof sizeText === 'string' ? sizeText.trim() : ''
@@ -157,6 +254,7 @@ const hydrateProduct = (product) => {
     ...product,
     sizes,
     description: product.description?.trim() || fallbackDescription,
+    image: normalizeProductImagePath(product.image),
   }
 }
 
@@ -224,7 +322,7 @@ function App() {
     category: '',
     price: '',
     size: '',
-    image: '/images/camiseta-blanca.svg',
+    image: DEFAULT_PRODUCT_IMAGE,
   })
   const [productError, setProductError] = useState('')
   const [productSuccess, setProductSuccess] = useState('')
@@ -563,7 +661,7 @@ function App() {
     localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users))
   }
 
-  const ensureAdminUser = () => {
+  const ensureAdminUser = useCallback(() => {
     const users = getSavedUsers()
     const adminExists = users.some((user) => user.email === DEFAULT_ADMIN_USER.email)
 
@@ -572,11 +670,11 @@ function App() {
     }
 
     saveUsers([...users, DEFAULT_ADMIN_USER])
-  }
+  }, [])
 
   useEffect(() => {
     ensureAdminUser()
-  }, [])
+  }, [ensureAdminUser])
 
   const resetAuthForm = () => {
     setAuthForm({ name: '', email: '', password: '' })
@@ -986,13 +1084,50 @@ function App() {
     }
   }
 
+  const handleProductImageFileChange = (event) => {
+    const selectedFile = event.target.files?.[0]
+
+    if (!selectedFile) {
+      return
+    }
+
+    if (!selectedFile.type.startsWith('image/')) {
+      setProductSuccess('')
+      setProductError('Selecciona un archivo de imagen válido.')
+      return
+    }
+
+    const fileReader = new FileReader()
+
+    fileReader.onload = () => {
+      const fileResult = typeof fileReader.result === 'string' ? fileReader.result : ''
+
+      if (!fileResult) {
+        setProductSuccess('')
+        setProductError('No se pudo leer la imagen seleccionada.')
+        return
+      }
+
+      setProductForm((currentForm) => ({ ...currentForm, image: fileResult }))
+      setProductError('')
+      setProductSuccess(`Imagen cargada: ${selectedFile.name}`)
+    }
+
+    fileReader.onerror = () => {
+      setProductSuccess('')
+      setProductError('Error al cargar la imagen. Intenta con otro archivo.')
+    }
+
+    fileReader.readAsDataURL(selectedFile)
+  }
+
   const resetProductForm = () => {
     setProductForm({
       name: '',
       category: '',
       price: '',
       size: '',
-      image: '/images/camiseta-blanca.svg',
+      image: DEFAULT_PRODUCT_IMAGE,
     })
   }
 
@@ -1002,7 +1137,7 @@ function App() {
     const name = productForm.name.trim()
     const category = productForm.category.trim()
     const size = productForm.size.trim()
-    const image = productForm.image.trim()
+    const image = normalizeProductImagePath(productForm.image)
     const price = Number.parseFloat(productForm.price)
 
     if (!name || !category || !size || !image || Number.isNaN(price) || price <= 0) {
@@ -1257,9 +1392,30 @@ function App() {
             <input
               type="text"
               name="image"
-              placeholder="Ruta de imagen (ej: /images/ropa.svg)"
+              placeholder="Ruta de imagen (ej: /images/ropa.jpg)"
               value={productForm.image}
               onChange={handleProductInputChange}
+            />
+            <select
+              name="image"
+              value={productForm.image.startsWith('data:image/') ? '' : normalizeProductImagePath(productForm.image)}
+              onChange={handleProductInputChange}
+            >
+              <option value="">Elegir imagen existente</option>
+              {AVAILABLE_PRODUCT_IMAGES.map((imagePath) => (
+                <option key={imagePath} value={imagePath}>
+                  {imagePath.replace('/images/', '')}
+                </option>
+              ))}
+            </select>
+            <input type="file" accept="image/*" onChange={handleProductImageFileChange} />
+            <img
+              src={resolveProductImageSrc(productForm.image)}
+              alt="Vista previa del producto"
+              className="product-image"
+              onError={(event) => {
+                event.currentTarget.src = resolveProductImageSrc(DEFAULT_PRODUCT_IMAGE)
+              }}
             />
             <button type="submit">{editingProductId ? 'Guardar cambios' : 'Añadir producto'}</button>
             {editingProductId && (
@@ -1395,7 +1551,14 @@ function App() {
 
           return (
           <article key={product.id} className="product-card">
-            <img src={product.image} alt={product.name} className="product-image" />
+            <img
+              src={resolveProductImageSrc(product.image)}
+              alt={product.name}
+              className="product-image"
+              onError={(event) => {
+                event.currentTarget.src = resolveProductImageSrc(DEFAULT_PRODUCT_IMAGE)
+              }}
+            />
             <h2>{product.name}</h2>
             <p className="product-meta">Categoría: {product.category}</p>
             <p className="product-meta">Tallas: {product.size}</p>
@@ -1477,7 +1640,14 @@ function App() {
             >
               ×
             </button>
-            <img src={selectedProduct.image} alt={selectedProduct.name} className="product-modal__image" />
+            <img
+              src={resolveProductImageSrc(selectedProduct.image)}
+              alt={selectedProduct.name}
+              className="product-modal__image"
+              onError={(event) => {
+                event.currentTarget.src = resolveProductImageSrc(DEFAULT_PRODUCT_IMAGE)
+              }}
+            />
             <h3>{selectedProduct.name}</h3>
             <p className="product-modal__description">{selectedProduct.description}</p>
             <p className="product-modal__price">Precio: ${selectedProduct.price.toFixed(2)}</p>
