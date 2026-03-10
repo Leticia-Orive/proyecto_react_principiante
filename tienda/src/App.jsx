@@ -29,11 +29,19 @@ const SEEN_REPLIES_STORAGE_KEY = 'tienda-seen-replies'
 const DEFAULT_PRODUCT_IMAGE = '/images/camiseta-blanca.jpg'
 const AVAILABLE_PRODUCT_IMAGES = [
   '/images/camiseta-blanca.jpg',
+  '/images/camiseta-azul.webp',
+  '/images/camiseta-pato.avif',
   '/images/jeans-azul.avif',
   '/images/sudadera-gris.png',
+  '/images/sudadera-baggy.jpg',
   '/images/chaqueta-denim.avif',
+  '/images/chaqueta-bomber.webp',
+  '/images/chaqueta-champions.jpg',
   '/images/vestido-floral.webp',
+  '/images/vestido-sweetra.webp',
   '/images/cargo-beige.jpg',
+  '/images/pantalones-baggy.webp',
+  '/images/pantalones-negros.webp',
   '/images/camiseta-estampada.webp',
   '/images/bomber-oliva.webp',
   '/images/gorra-negra.webp',
@@ -62,6 +70,14 @@ const LEGACY_IMAGE_PATHS = {
   '/images/botines-negros.avif': '/images/botines-negros.jpg',
   '/images/botines-negros.webp': '/images/botines-negros.jpg',
   '/images/botines-negros.svg': '/images/botines-negros.jpg',
+  '/images/camiseta-azul.svg': '/images/camiseta-azul.webp',
+  '/images/camiseta-pato.svg': '/images/camiseta-pato.avif',
+  '/images/sudadera-baggy.webp': '/images/sudadera-baggy.jpg',
+  '/images/chaqueta-bomber.svg': '/images/chaqueta-bomber.webp',
+  '/images/chaqueta-champions.webp': '/images/chaqueta-champions.jpg',
+  '/images/vestido-sweetra.svg': '/images/vestido-sweetra.webp',
+  '/images/pantalones-baggy.svg': '/images/pantalones-baggy.webp',
+  '/images/pantalones-negros.svg': '/images/pantalones-negros.webp',
 }
 
 const DEFAULT_ADMIN_USER = {
@@ -204,7 +220,95 @@ const DEFAULT_PRODUCTS = [
     sizes: ['36', '37', '38', '39', '40', '41', '42'],
     description:
       'Botines de corte medio con acabado mate y suela antideslizante para uso diario.',
-    image: '/images/botines-negros.webp',
+    image: '/images/botines-negros.jpg',
+  },
+  {
+    id: 13,
+    name: 'Camiseta premium negra',
+    category: 'Camisetas',
+    price: 24.99,
+    size: 'S - XL',
+    sizes: ['S', 'M', 'L', 'XL'],
+    description:
+      'Camiseta premium con tacto suave y corte recto para uso diario.',
+    image: '/images/camiseta-pato.avif',
+  },
+  {
+    id: 14,
+    name: 'Jeans slim azul oscuro',
+    category: 'Pantalones',
+    price: 45.5,
+    size: '36 - 46',
+    sizes: ['36', '38', '40', '42', '44', '46'],
+    description:
+      'Jeans slim de tiro medio con tejido elastico y ajuste comodo.',
+    image: '/images/pantalones-baggy.webp',
+  },
+  {
+    id: 15,
+    name: 'Sudadera con capucha arena',
+    category: 'Sudaderas',
+    price: 38.99,
+    size: 'M - XXL',
+    sizes: ['M', 'L', 'XL', 'XXL'],
+    description:
+      'Sudadera con capucha y bolsillo frontal, ideal para entretiempo.',
+    image: '/images/sudadera-baggy.jpg',
+  },
+  {
+    id: 16,
+    name: 'Chaqueta denim azul',
+    category: 'Chaquetas',
+    price: 57.9,
+    size: 'S - XL',
+    sizes: ['S', 'M', 'L', 'XL'],
+    description:
+      'Chaqueta denim de estructura ligera para looks casuales.',
+    image: '/images/chaqueta-champions.jpg',
+  },
+  {
+    id: 17,
+    name: 'Pantalon cargo negro',
+    category: 'Pantalones',
+    price: 46.75,
+    size: '38 - 46',
+    sizes: ['38', '40', '42', '44', '46'],
+    description:
+      'Cargo de fit relajado con bolsillos laterales y tejido resistente.',
+    image: '/images/pantalones-negros.webp',
+  },
+  {
+    id: 18,
+    name: 'Bomber urbana negra',
+    category: 'Chaquetas',
+    price: 62.0,
+    size: 'M - XXL',
+    sizes: ['M', 'L', 'XL', 'XXL'],
+    description:
+      'Bomber urbana con cuello rib y acabado minimalista.',
+    image: '/images/chaqueta-bomber.webp',
+  },
+  {
+    id: 19,
+    name: 'Vestido  verano',
+    category: 'Vestidos',
+    price: 47.25,
+    size: 'S - L',
+    sizes: ['S', 'M', 'L'],
+    description:
+      'Vestido ligero de corte midi con caida fluida para dias calidos.',
+    image: '/images/vestido-sweetra.webp',
+  },
+  {
+    id: 20,
+    name: 'Camiseta oversize azul',
+    category: 'Camisetas',
+    price: 21.9,
+    size: 'M - XXL',
+    sizes: ['M', 'L', 'XL', 'XXL'],
+    description:
+      'Camiseta oversize de algodon con estilo urbano y comodo.',
+    image: '/images/camiseta-azul.webp',
   },
 ]
 
@@ -297,6 +401,14 @@ const resolveProductImageSrc = (imagePath) => {
 // Fuerza imagen canonica para productos sensibles (bandolera/botines).
 // Prioriza imagenes oficiales para productos clave (evita rutas rotas por datos antiguos).
 const getCanonicalImageForProduct = (product) => {
+  const defaultProduct = DEFAULT_PRODUCTS.find(
+    (defaultItem) => Number(defaultItem.id) === Number(product?.id),
+  )
+
+  if (defaultProduct?.image) {
+    return defaultProduct.image
+  }
+
   const productName = normalizeText(product?.name ?? '')
 
   if (Number(product?.id) === 10 || productName.includes('bandolera')) {
