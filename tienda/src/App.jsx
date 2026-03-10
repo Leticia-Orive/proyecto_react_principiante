@@ -21,6 +21,10 @@ const AVAILABLE_PRODUCT_IMAGES = [
   '/images/cargo-beige.jpg',
   '/images/camiseta-estampada.webp',
   '/images/bomber-oliva.webp',
+  '/images/gorra-negra.webp',
+  '/images/zapatillas-blancas.webp',
+  '/images/bandolera.webp',
+  '/images/botines-negros.jpg',
 ]
 const LEGACY_IMAGE_PATHS = {
   '/images/camiseta-blanca.svg': '/images/camiseta-blanca.jpg',
@@ -31,6 +35,16 @@ const LEGACY_IMAGE_PATHS = {
   '/images/cargo-beige.svg': '/images/cargo-beige.jpg',
   '/images/camiseta-estampada.svg': '/images/camiseta-estampada.webp',
   '/images/bomber-oliva.svg': '/images/bomber-oliva.webp',
+  '/images/gorra-negra.svg': '/images/gorra-negra.webp',
+  '/images/zapatillas-blancas.svg': '/images/zapatillas-blancas.webp',
+  '/images/bandolera.svg': '/images/bandolera.webp',
+  '/images/bandolera.jpg': '/images/bandolera.webp',
+  '/images/bandolera.png': '/images/bandolera.webp',
+  '/images/bandolera.avif': '/images/bandolera.webp',
+  '/images/botines-negros.png': '/images/botines-negros.jpg',
+  '/images/botines-negros.avif': '/images/botines-negros.jpg',
+  '/images/botines-negros.webp': '/images/botines-negros.jpg',
+  '/images/botines-negros.svg': '/images/botines-negros.jpg',
 }
 
 const DEFAULT_ADMIN_USER = {
@@ -130,6 +144,50 @@ const DEFAULT_PRODUCTS = [
       'Chaqueta bomber con cierre frontal y puños elásticos, ideal para completar un look urbano.',
     image: '/images/bomber-oliva.webp',
   },
+  {
+    id: 9,
+    name: 'Gorra urbana negra',
+    category: 'Accesorios',
+    price: 18.9,
+    size: 'Unica',
+    sizes: ['Unica'],
+    description:
+      'Gorra ajustable con visera curva y tejido ligero. Ideal para complementar looks casuales.',
+    image: '/images/gorra-negra.webp',
+  },
+  {
+    id: 10,
+    name: 'Bandolera minimal beige',
+    category: 'Accesorios',
+    price: 26.5,
+    size: 'Unica',
+    sizes: ['Unica'],
+    description:
+      'Bandolera compacta con compartimentos interiores y correa regulable para uso diario.',
+    image: '/images/bandolera.webp',
+  },
+  {
+    id: 11,
+    name: 'Zapatillas blancas urban',
+    category: 'Calzados',
+    price: 64.9,
+    size: '38 - 44',
+    sizes: ['38', '39', '40', '41', '42', '43', '44'],
+    description:
+      'Zapatillas de estilo urbano con suela flexible y plantilla acolchada para mayor comodidad.',
+    image: '/images/zapatillas-blancas.webp',
+  },
+  {
+    id: 12,
+    name: 'Botines negros clasicos',
+    category: 'Calzados',
+    price: 79.0,
+    size: '36 - 42',
+    sizes: ['36', '37', '38', '39', '40', '41', '42'],
+    description:
+      'Botines de corte medio con acabado mate y suela antideslizante para uso diario.',
+    image: '/images/botines-negros.webp',
+  },
 ]
 
 const normalizeText = (value) =>
@@ -214,6 +272,41 @@ const resolveProductImageSrc = (imagePath) => {
   return `${import.meta.env.BASE_URL}${cleanPath}`
 }
 
+const getCanonicalImageForProduct = (product) => {
+  const productName = normalizeText(product?.name ?? '')
+
+  if (Number(product?.id) === 10 || productName.includes('bandolera')) {
+    return '/images/bandolera.webp'
+  }
+
+  if (Number(product?.id) === 12 || productName.includes('botines')) {
+    return '/images/botines-negros.jpg'
+  }
+
+  return product?.image
+}
+
+const PRODUCT_FALLBACK_IMAGES = {
+  bandolera:
+    "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 800'><rect width='600' height='800' fill='%23eef2ff'/><rect x='160' y='240' width='280' height='260' rx='24' fill='%23b7794f'/><rect x='195' y='280' width='210' height='130' rx='18' fill='%23d09a71'/><path d='M165 240c20-90 90-150 170-150s150 60 170 150' fill='none' stroke='%23623f2a' stroke-width='18' stroke-linecap='round'/><rect x='280' y='430' width='40' height='14' rx='7' fill='%23623f2a'/><text x='300' y='610' text-anchor='middle' font-family='Arial' font-size='34' fill='%23334155'>Bandolera</text></svg>",
+  botines:
+    "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 800'><rect width='600' height='800' fill='%23e2e8f0'/><ellipse cx='300' cy='650' rx='220' ry='36' fill='%23cbd5e1'/><path d='M130 260h190c20 0 36 16 36 36v160c0 16 7 31 19 41l44 35c20 16 8 48-17 48H150c-34 0-62-28-62-62V296c0-20 16-36 42-36z' fill='%23111827'/><path d='M90 550h340c18 0 32 14 32 32s-14 32-32 32H130c-33 0-60-27-60-60 0-1 0-2 20-4z' fill='%230b1220'/><rect x='148' y='330' width='160' height='12' rx='6' fill='%234b5563'/><rect x='148' y='366' width='160' height='12' rx='6' fill='%234b5563'/><rect x='148' y='402' width='160' height='12' rx='6' fill='%234b5563'/><text x='300' y='710' text-anchor='middle' font-family='Arial' font-size='34' fill='%231f2937'>Botines negros</text></svg>",
+}
+
+const getProductFallbackImage = (product) => {
+  const productName = normalizeText(product?.name ?? '')
+
+  if (Number(product?.id) === 10 || productName.includes('bandolera')) {
+    return PRODUCT_FALLBACK_IMAGES.bandolera
+  }
+
+  if (Number(product?.id) === 12 || productName.includes('botines')) {
+    return PRODUCT_FALLBACK_IMAGES.botines
+  }
+
+  return resolveProductImageSrc(DEFAULT_PRODUCT_IMAGE)
+}
+
 const parseSizeRange = (sizeText) => {
   const trimmedSize = typeof sizeText === 'string' ? sizeText.trim() : ''
 
@@ -249,13 +342,63 @@ const parseSizeRange = (sizeText) => {
 const hydrateProduct = (product) => {
   const fallbackDescription = `Prenda de la categoría ${product.category} con diseño moderno y cómodo para uso diario.`
   const sizes = Array.isArray(product.sizes) && product.sizes.length > 0 ? product.sizes : parseSizeRange(product.size)
+  const canonicalImage = getCanonicalImageForProduct(product)
 
   return {
     ...product,
     sizes,
     description: product.description?.trim() || fallbackDescription,
-    image: normalizeProductImagePath(product.image),
+    image: normalizeProductImagePath(canonicalImage),
   }
+}
+
+const mergeProductsWithDefaults = (storedProducts) => {
+  const hydratedStoredProducts = storedProducts.map((product) => hydrateProduct(product))
+  const storedIds = new Set(hydratedStoredProducts.map((product) => product.id))
+  const missingDefaultProducts = DEFAULT_PRODUCTS.filter((product) => !storedIds.has(product.id)).map(
+    (product) => hydrateProduct(product),
+  )
+
+  return [...hydratedStoredProducts, ...missingDefaultProducts]
+}
+
+const ensureKeyCatalogProducts = (products) => {
+  const normalizedProducts = products.map((product) => hydrateProduct(product))
+  const mustHaveProducts = DEFAULT_PRODUCTS.filter((product) => [10, 12].includes(product.id))
+  const hasMatchingProduct = (targetProduct) => {
+    const targetName = normalizeText(targetProduct.name)
+    const targetImage = normalizeProductImagePath(targetProduct.image)
+
+    return normalizedProducts.some((product) => {
+      const productName = normalizeText(product.name ?? '')
+      const productImage = normalizeProductImagePath(product.image)
+      return productName === targetName || productImage === targetImage
+    })
+  }
+
+  let nextId = normalizedProducts.reduce((maxId, product) => {
+    const parsedId = Number.parseInt(product.id, 10)
+    return Number.isInteger(parsedId) ? Math.max(maxId, parsedId) : maxId
+  }, 0) + 1
+
+  const missingKeyProducts = mustHaveProducts
+    .filter((product) => !hasMatchingProduct(product))
+    .map((product) => {
+      const fallbackId = normalizedProducts.some((storedProduct) => storedProduct.id === product.id)
+        ? nextId++
+        : product.id
+
+      return hydrateProduct({
+        ...product,
+        id: fallbackId,
+      })
+    })
+
+  if (missingKeyProducts.length === 0) {
+    return normalizedProducts
+  }
+
+  return [...normalizedProducts, ...missingKeyProducts]
 }
 
 const getProductSizeOptions = (product) => {
@@ -305,15 +448,17 @@ function App() {
       const savedProducts = localStorage.getItem(PRODUCTS_STORAGE_KEY)
 
       if (!savedProducts) {
-        return DEFAULT_PRODUCTS
+        return DEFAULT_PRODUCTS.map((product) => hydrateProduct(product))
       }
 
       const parsedProducts = JSON.parse(savedProducts)
-      return Array.isArray(parsedProducts) && parsedProducts.length > 0
-        ? parsedProducts.map((product) => hydrateProduct(product))
-        : DEFAULT_PRODUCTS
+      if (Array.isArray(parsedProducts) && parsedProducts.length > 0) {
+        return ensureKeyCatalogProducts(mergeProductsWithDefaults(parsedProducts))
+      }
+
+      return ensureKeyCatalogProducts(DEFAULT_PRODUCTS)
     } catch {
-      return DEFAULT_PRODUCTS
+      return ensureKeyCatalogProducts(DEFAULT_PRODUCTS)
     }
   })
 
@@ -475,6 +620,10 @@ function App() {
   useEffect(() => {
     localStorage.setItem(PRODUCTS_STORAGE_KEY, JSON.stringify(products))
   }, [products])
+
+  useEffect(() => {
+    setProducts((currentProducts) => ensureKeyCatalogProducts(currentProducts))
+  }, [])
 
   useEffect(() => {
     localStorage.setItem(REQUESTS_STORAGE_KEY, JSON.stringify(customerRequests))
@@ -1137,8 +1286,21 @@ function App() {
     const name = productForm.name.trim()
     const category = productForm.category.trim()
     const size = productForm.size.trim()
+    const rawImage = productForm.image.trim()
     const image = normalizeProductImagePath(productForm.image)
     const price = Number.parseFloat(productForm.price)
+
+    const isSvgPath =
+      rawImage &&
+      !rawImage.startsWith('data:image/') &&
+      !/^https?:\/\//i.test(rawImage) &&
+      rawImage.toLowerCase().endsWith('.svg')
+
+    if (isSvgPath && !LEGACY_IMAGE_PATHS[rawImage]) {
+      setProductSuccess('')
+      setProductError('No uses rutas .svg manuales. Usa .jpg, .png, .webp o .avif.')
+      return
+    }
 
     if (!name || !category || !size || !image || Number.isNaN(price) || price <= 0) {
       setProductSuccess('')
@@ -1552,11 +1714,11 @@ function App() {
           return (
           <article key={product.id} className="product-card">
             <img
-              src={resolveProductImageSrc(product.image)}
+              src={resolveProductImageSrc(getCanonicalImageForProduct(product))}
               alt={product.name}
               className="product-image"
               onError={(event) => {
-                event.currentTarget.src = resolveProductImageSrc(DEFAULT_PRODUCT_IMAGE)
+                event.currentTarget.src = getProductFallbackImage(product)
               }}
             />
             <h2>{product.name}</h2>
@@ -1641,11 +1803,11 @@ function App() {
               ×
             </button>
             <img
-              src={resolveProductImageSrc(selectedProduct.image)}
+              src={resolveProductImageSrc(getCanonicalImageForProduct(selectedProduct))}
               alt={selectedProduct.name}
               className="product-modal__image"
               onError={(event) => {
-                event.currentTarget.src = resolveProductImageSrc(DEFAULT_PRODUCT_IMAGE)
+                event.currentTarget.src = getProductFallbackImage(selectedProduct)
               }}
             />
             <h3>{selectedProduct.name}</h3>
