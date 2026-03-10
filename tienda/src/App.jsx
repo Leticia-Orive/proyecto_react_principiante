@@ -3,6 +3,19 @@ import './App.css'
 import CartSection from './components/CartSection'
 import RequestsPanel from './components/RequestsPanel'
 
+/*
+  Indice rapido de estudio (App.jsx)
+  1) Configuracion y datos base: claves storage, imagenes, admin, productos por defecto.
+  2) Utilidades: normalizacion de texto/rutas, tallas, hydrate de productos y solicitudes.
+  3) Estado principal de App: auth, catalogo, filtros, carrito, solicitudes y avisos UI.
+  4) useEffect: persistencia en localStorage, sincronizaciones y notificaciones.
+  5) Handlers de autenticacion: registro, login, logout y cambio de modo.
+  6) Handlers de tienda/carrito: talla, agregar, quitar, comprar, filtros y modal.
+  7) Handlers de solicitudes: crear, responder (admin), borrar.
+  8) Handlers de admin productos: crear, editar, cancelar, eliminar, imagen.
+*/
+
+// Claves de localStorage para persistir estado entre recargas.
 const CART_STORAGE_KEY = 'tienda-cart'
 const USERS_STORAGE_KEY = 'tienda-users'
 const SESSION_STORAGE_KEY = 'tienda-session'
@@ -11,6 +24,8 @@ const SORT_STORAGE_KEY = 'tienda-sort-order'
 const CATEGORY_STORAGE_KEY = 'tienda-selected-category'
 const REQUESTS_STORAGE_KEY = 'tienda-customer-requests'
 const SEEN_REPLIES_STORAGE_KEY = 'tienda-seen-replies'
+
+// Imagen por defecto y catalogo de rutas sugeridas para el selector admin.
 const DEFAULT_PRODUCT_IMAGE = '/images/camiseta-blanca.jpg'
 const AVAILABLE_PRODUCT_IMAGES = [
   '/images/camiseta-blanca.jpg',
@@ -26,6 +41,8 @@ const AVAILABLE_PRODUCT_IMAGES = [
   '/images/bandolera.webp',
   '/images/botines-negros.jpg',
 ]
+
+// Compatibilidad con rutas antiguas o formatos cambiados.
 const LEGACY_IMAGE_PATHS = {
   '/images/camiseta-blanca.svg': '/images/camiseta-blanca.jpg',
   '/images/jeans-azul.svg': '/images/jeans-azul.avif',
@@ -55,6 +72,7 @@ const DEFAULT_ADMIN_USER = {
   role: 'admin',
 }
 
+// Catalogo base inicial de la tienda (si no hay datos guardados).
 const DEFAULT_PRODUCTS = [
   {
     id: 1,
@@ -190,12 +208,14 @@ const DEFAULT_PRODUCTS = [
   },
 ]
 
+// Normaliza texto para comparar sin tildes ni mayusculas/minusculas.
 const normalizeText = (value) =>
   value
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
 
+// Limpia y convierte rutas de imagen (absolutas, relativas o antiguas) a un formato valido.
 const normalizeProductImagePath = (imagePath) => {
   const rawPath = typeof imagePath === 'string' ? imagePath.trim() : ''
 
@@ -261,6 +281,8 @@ const normalizeProductImagePath = (imagePath) => {
   return rawPath
 }
 
+// Convierte una ruta normalizada en src final, respetando BASE_URL de Vite.
+// Construye el src final de imagen respetando la base de despliegue.
 const resolveProductImageSrc = (imagePath) => {
   const normalizedPath = normalizeProductImagePath(imagePath)
 
@@ -272,6 +294,8 @@ const resolveProductImageSrc = (imagePath) => {
   return `${import.meta.env.BASE_URL}${cleanPath}`
 }
 
+// Fuerza imagen canonica para productos sensibles (bandolera/botines).
+// Prioriza imagenes oficiales para productos clave (evita rutas rotas por datos antiguos).
 const getCanonicalImageForProduct = (product) => {
   const productName = normalizeText(product?.name ?? '')
 
@@ -286,6 +310,7 @@ const getCanonicalImageForProduct = (product) => {
   return product?.image
 }
 
+// Fallbacks embebidos para mostrar algo aunque el archivo fisico falle.
 const PRODUCT_FALLBACK_IMAGES = {
   bandolera:
     "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 800'><rect width='600' height='800' fill='%23eef2ff'/><rect x='160' y='240' width='280' height='260' rx='24' fill='%23b7794f'/><rect x='195' y='280' width='210' height='130' rx='18' fill='%23d09a71'/><path d='M165 240c20-90 90-150 170-150s150 60 170 150' fill='none' stroke='%23623f2a' stroke-width='18' stroke-linecap='round'/><rect x='280' y='430' width='40' height='14' rx='7' fill='%23623f2a'/><text x='300' y='610' text-anchor='middle' font-family='Arial' font-size='34' fill='%23334155'>Bandolera</text></svg>",
@@ -293,6 +318,8 @@ const PRODUCT_FALLBACK_IMAGES = {
     "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 800'><rect width='600' height='800' fill='%23e2e8f0'/><ellipse cx='300' cy='650' rx='220' ry='36' fill='%23cbd5e1'/><path d='M130 260h190c20 0 36 16 36 36v160c0 16 7 31 19 41l44 35c20 16 8 48-17 48H150c-34 0-62-28-62-62V296c0-20 16-36 42-36z' fill='%23111827'/><path d='M90 550h340c18 0 32 14 32 32s-14 32-32 32H130c-33 0-60-27-60-60 0-1 0-2 20-4z' fill='%230b1220'/><rect x='148' y='330' width='160' height='12' rx='6' fill='%234b5563'/><rect x='148' y='366' width='160' height='12' rx='6' fill='%234b5563'/><rect x='148' y='402' width='160' height='12' rx='6' fill='%234b5563'/><text x='300' y='710' text-anchor='middle' font-family='Arial' font-size='34' fill='%231f2937'>Botines negros</text></svg>",
 }
 
+// Devuelve el fallback adecuado por producto.
+// Devuelve una imagen embebida de emergencia si falla la carga del archivo fisico.
 const getProductFallbackImage = (product) => {
   const productName = normalizeText(product?.name ?? '')
 
@@ -307,6 +334,8 @@ const getProductFallbackImage = (product) => {
   return resolveProductImageSrc(DEFAULT_PRODUCT_IMAGE)
 }
 
+// Expande rangos de talla, por ejemplo "S - XL" o "36 - 42".
+// Convierte una talla textual en lista de opciones seleccionables.
 const parseSizeRange = (sizeText) => {
   const trimmedSize = typeof sizeText === 'string' ? sizeText.trim() : ''
 
@@ -339,6 +368,8 @@ const parseSizeRange = (sizeText) => {
   return [trimmedSize]
 }
 
+// Normaliza un producto para garantizar campos minimos coherentes.
+// Normaliza un producto para que siempre tenga descripcion, tallas e imagen consistentes.
 const hydrateProduct = (product) => {
   const fallbackDescription = `Prenda de la categoría ${product.category} con diseño moderno y cómodo para uso diario.`
   const sizes = Array.isArray(product.sizes) && product.sizes.length > 0 ? product.sizes : parseSizeRange(product.size)
@@ -352,6 +383,8 @@ const hydrateProduct = (product) => {
   }
 }
 
+// Fusiona productos guardados con defaults que falten por id.
+// Combina productos guardados con los del catalogo base para no perder items por defecto.
 const mergeProductsWithDefaults = (storedProducts) => {
   const hydratedStoredProducts = storedProducts.map((product) => hydrateProduct(product))
   const storedIds = new Set(hydratedStoredProducts.map((product) => product.id))
@@ -362,6 +395,8 @@ const mergeProductsWithDefaults = (storedProducts) => {
   return [...hydratedStoredProducts, ...missingDefaultProducts]
 }
 
+// Asegura que bandolera y botines existan siempre en el catalogo.
+// Garantiza que productos imprescindibles sigan presentes aunque se hayan borrado en storage.
 const ensureKeyCatalogProducts = (products) => {
   const normalizedProducts = products.map((product) => hydrateProduct(product))
   const mustHaveProducts = DEFAULT_PRODUCTS.filter((product) => [10, 12].includes(product.id))
@@ -401,6 +436,8 @@ const ensureKeyCatalogProducts = (products) => {
   return [...normalizedProducts, ...missingKeyProducts]
 }
 
+// Obtiene tallas efectivas de un producto (array o fallback simple).
+// Obtiene las tallas disponibles de un producto en formato array.
 const getProductSizeOptions = (product) => {
   if (Array.isArray(product.sizes) && product.sizes.length > 0) {
     return product.sizes
@@ -409,12 +446,16 @@ const getProductSizeOptions = (product) => {
   return product.size ? [product.size] : []
 }
 
+// Limpia campos opcionales de solicitudes de cliente.
+// Normaliza solicitudes de cliente para evitar null/undefined en respuestas.
 const hydrateCustomerRequest = (requestItem) => ({
   ...requestItem,
   adminReply: requestItem.adminReply?.trim() ?? '',
   repliedAt: requestItem.repliedAt ?? null,
 })
 
+// Formatea fechas para mostrarlas al usuario final.
+// Formatea fechas al formato local en espanol.
 const formatDateTime = (value) => {
   if (!value) {
     return ''
@@ -424,10 +465,13 @@ const formatDateTime = (value) => {
 }
 
 function App() {
+  // Estado de autenticacion (login/registro).
   const [authMode, setAuthMode] = useState('login')
   const [authForm, setAuthForm] = useState({ name: '', email: '', password: '' })
   const [authError, setAuthError] = useState('')
   const [authSuccess, setAuthSuccess] = useState('')
+
+  // Sesion activa (usuario autenticado).
   const [currentUser, setCurrentUser] = useState(() => {
     try {
       const savedSession = localStorage.getItem(SESSION_STORAGE_KEY)
@@ -443,6 +487,7 @@ function App() {
     }
   })
 
+  // Catalogo de productos, hidratado desde localStorage o defaults.
   const [products, setProducts] = useState(() => {
     try {
       const savedProducts = localStorage.getItem(PRODUCTS_STORAGE_KEY)
@@ -462,6 +507,7 @@ function App() {
     }
   })
 
+  // Estado del formulario admin para crear/editar productos.
   const [productForm, setProductForm] = useState({
     name: '',
     category: '',
@@ -473,6 +519,8 @@ function App() {
   const [productSuccess, setProductSuccess] = useState('')
   const [editingProductId, setEditingProductId] = useState(null)
   const [adminSearch, setAdminSearch] = useState('')
+
+  // Solicitudes de clientes y formulario asociado.
   const [customerRequests, setCustomerRequests] = useState(() => {
     try {
       const savedRequests = localStorage.getItem(REQUESTS_STORAGE_KEY)
@@ -497,9 +545,12 @@ function App() {
   const [requestError, setRequestError] = useState('')
   const [requestSuccess, setRequestSuccess] = useState('')
   const [adminReplyDrafts, setAdminReplyDrafts] = useState({})
+
+  // Estado visual de producto (detalle y talla elegida por tarjeta).
   const [selectedProduct, setSelectedProduct] = useState(null)
   const [selectedSizes, setSelectedSizes] = useState({})
 
+  // Filtros de catalogo.
   const [selectedCategory, setSelectedCategory] = useState(() => {
     const savedCategory = localStorage.getItem(CATEGORY_STORAGE_KEY)
     return savedCategory ?? 'Todas'
@@ -522,6 +573,8 @@ function App() {
   const [cartNoticeText, setCartNoticeText] = useState('')
   const [userView, setUserView] = useState('store')
   const [isClearCartPromptOpen, setIsClearCartPromptOpen] = useState(false)
+
+  // Carrito de compras persistente.
   const [cart, setCart] = useState(() => {
     try {
       const savedCart = localStorage.getItem(CART_STORAGE_KEY)
@@ -613,6 +666,7 @@ function App() {
     }
   }, [authForm.password])
 
+  // Persistencia principal de estado en localStorage.
   useEffect(() => {
     localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart))
   }, [cart])
@@ -637,6 +691,7 @@ function App() {
     localStorage.setItem(CATEGORY_STORAGE_KEY, selectedCategory)
   }, [selectedCategory])
 
+  // Efectos de UI para cierre automatico de avisos/toasts.
   useEffect(() => {
     if (!showFiltersNotice) {
       return
@@ -675,6 +730,7 @@ function App() {
     return () => clearTimeout(timeoutId)
   }, [showCartNotice, cartNoticeId])
 
+  // Mantiene la sesion sincronizada.
   useEffect(() => {
     if (currentUser) {
       localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(currentUser))
@@ -684,6 +740,7 @@ function App() {
     localStorage.removeItem(SESSION_STORAGE_KEY)
   }, [currentUser])
 
+  // Si desaparece la categoria elegida, vuelve a "Todas".
   useEffect(() => {
     if (selectedCategory === 'Todas') {
       return
@@ -698,6 +755,7 @@ function App() {
     }
   }, [products, selectedCategory])
 
+  // Sincroniza carrito con cambios de productos (precio, nombre, talla).
   useEffect(() => {
     setCart((currentCart) =>
       currentCart
@@ -727,6 +785,7 @@ function App() {
     )
   }, [products])
 
+  // Mantiene seleccion de tallas valida por producto.
   useEffect(() => {
     setSelectedSizes((currentSelection) => {
       const nextSelection = {}
@@ -743,6 +802,7 @@ function App() {
     })
   }, [products])
 
+  // Detecta respuestas nuevas del admin y lanza aviso al usuario.
   useEffect(() => {
     if (!currentUser || currentUser.role === 'admin') {
       return
@@ -791,6 +851,7 @@ function App() {
     }
   }, [customerRequests, currentUser])
 
+  // Lee usuarios persistidos y devuelve array seguro.
   const getSavedUsers = () => {
     try {
       const savedUsers = localStorage.getItem(USERS_STORAGE_KEY)
@@ -806,10 +867,12 @@ function App() {
     }
   }
 
+  // Guarda la lista de usuarios en localStorage.
   const saveUsers = (users) => {
     localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users))
   }
 
+  // Crea el usuario admin por defecto si aun no existe.
   const ensureAdminUser = useCallback(() => {
     const users = getSavedUsers()
     const adminExists = users.some((user) => user.email === DEFAULT_ADMIN_USER.email)
@@ -825,10 +888,13 @@ function App() {
     ensureAdminUser()
   }, [ensureAdminUser])
 
+  // Handlers de autenticacion.
+  // Limpia los campos del formulario de login/registro.
   const resetAuthForm = () => {
     setAuthForm({ name: '', email: '', password: '' })
   }
 
+  // Actualiza inputs de autenticacion y limpia errores previos.
   const handleAuthInputChange = (event) => {
     const { name, value } = event.target
     setAuthForm((currentForm) => ({ ...currentForm, [name]: value }))
@@ -837,6 +903,7 @@ function App() {
     }
   }
 
+  // Registra un nuevo usuario validando reglas basicas de password y email unico.
   const handleRegister = () => {
     const name = authForm.name.trim()
     const email = authForm.email.trim().toLowerCase()
@@ -896,6 +963,7 @@ function App() {
     setAuthSuccess('Registro exitoso. Ahora inicia sesión con tu correo y contraseña.')
   }
 
+  // Inicia sesion verificando credenciales guardadas.
   const handleLogin = () => {
     const email = authForm.email.trim().toLowerCase()
     const password = authForm.password.trim()
@@ -926,6 +994,7 @@ function App() {
     resetAuthForm()
   }
 
+  // Decide si enviar a registro o login segun la pestana activa.
   const handleAuthSubmit = (event) => {
     event.preventDefault()
 
@@ -937,6 +1006,7 @@ function App() {
     handleLogin()
   }
 
+  // Cambia entre modo login/registro y reinicia mensajes.
   const handleSwitchAuthMode = (mode) => {
     setAuthMode(mode)
     setAuthError('')
@@ -944,6 +1014,7 @@ function App() {
     resetAuthForm()
   }
 
+  // Cierra sesion y limpia estados visuales temporales.
   const handleLogout = () => {
     setCurrentUser(null)
     setIsClearCartPromptOpen(false)
@@ -954,18 +1025,23 @@ function App() {
     setUserView('store')
   }
 
+  // Muestra la vista de carrito para usuarios cliente.
   const handleOpenCartView = () => {
     setUserView('cart')
   }
 
+  // Muestra la vista principal de productos.
   const handleOpenStoreView = () => {
     setUserView('store')
   }
 
+  // Muestra la vista de solicitudes del usuario.
   const handleOpenRequestsView = () => {
     setUserView('requests')
   }
 
+  // Handlers de catalogo y carrito.
+  // Guarda la talla elegida por producto.
   const handleSizeChange = (productId, size) => {
     setSelectedSizes((currentSelection) => ({
       ...currentSelection,
@@ -973,6 +1049,7 @@ function App() {
     }))
   }
 
+  // Devuelve la talla seleccionada o la primera disponible como fallback.
   const getSelectedSizeForProduct = (product) => {
     const availableSizes = getProductSizeOptions(product)
     const selectedSize = selectedSizes[product.id]
@@ -984,6 +1061,7 @@ function App() {
     return availableSizes[0] ?? ''
   }
 
+  // Agrega al carrito (o incrementa cantidad) para producto + talla.
   const handleAddToCart = (productToAdd, chosenSize) => {
     setCart((currentCart) => {
       const existingProduct = currentCart.find(
@@ -1007,14 +1085,17 @@ function App() {
     setCartNoticeId((currentId) => currentId + 1)
   }
 
+  // Abre modal de detalle de producto.
   const handleOpenProductDetails = (product) => {
     setSelectedProduct(product)
   }
 
+  // Cierra modal de detalle.
   const handleCloseProductDetails = () => {
     setSelectedProduct(null)
   }
 
+  // Simula compra inmediata mediante confirmacion.
   const handleBuyNow = (product, chosenSize) => {
     const confirmed = window.confirm(
       `Comprar ahora "${product.name}" talla ${chosenSize} por $${product.price.toFixed(2)} sin pasar por el carrito?`,
@@ -1029,6 +1110,7 @@ function App() {
     )
   }
 
+  // Elimina una cantidad concreta de un item del carrito.
   const handleRemoveFromCart = (productId, selectedSize, productName, currentQuantity) => {
     const value = window.prompt(
       `¿Cuántos "${productName}" talla ${selectedSize} quieres borrar? (1-${currentQuantity})`,
@@ -1062,11 +1144,13 @@ function App() {
     )
   }
 
+  // Vacia el carrito completo.
   const handleClearCart = () => {
     setCart([])
     setIsClearCartPromptOpen(false)
   }
 
+  // Aumenta en 1 la cantidad de un item del carrito.
   const handleIncreaseQuantity = (productId, selectedSize) => {
     setCart((currentCart) =>
       currentCart.map((item) =>
@@ -1077,6 +1161,7 @@ function App() {
     )
   }
 
+  // Reduce en 1 la cantidad y elimina si llega a cero.
   const handleDecreaseQuantity = (productId, selectedSize) => {
     setCart((currentCart) =>
       currentCart.flatMap((item) => {
@@ -1093,6 +1178,7 @@ function App() {
     )
   }
 
+  // Restablece filtros de categoria, orden y busqueda.
   const handleResetFilters = () => {
     setSelectedCategory('Todas')
     setSortOrder('default')
@@ -1103,6 +1189,7 @@ function App() {
     setFiltersNoticeFlashA((currentValue) => !currentValue)
   }
 
+  // Cierra el aviso visual de filtros restablecidos.
   const handleCloseFiltersNotice = () => {
     setIsFiltersNoticeClosing(true)
 
@@ -1112,6 +1199,7 @@ function App() {
     }, 180)
   }
 
+  // Cierra el aviso de respuestas nuevas del admin.
   const handleCloseReplyNotice = () => {
     setIsReplyNoticeClosing(true)
 
@@ -1122,6 +1210,7 @@ function App() {
     }, 180)
   }
 
+  // Cierra el aviso temporal de carrito.
   const handleCloseCartNotice = () => {
     setIsCartNoticeClosing(true)
 
@@ -1132,6 +1221,8 @@ function App() {
     }, 180)
   }
 
+  // Handlers de solicitudes de cliente y respuestas admin.
+  // Actualiza formulario de solicitud y limpia mensajes.
   const handleRequestInputChange = (event) => {
     const { name, value } = event.target
     setRequestForm((currentForm) => ({ ...currentForm, [name]: value }))
@@ -1145,6 +1236,7 @@ function App() {
     }
   }
 
+  // Crea una nueva solicitud de cliente.
   const handleCreateRequest = (event) => {
     event.preventDefault()
 
@@ -1176,6 +1268,7 @@ function App() {
     setRequestSuccess('Tu solicitud se envió correctamente. El administrador la revisará.')
   }
 
+  // Guarda borradores de respuesta del admin por solicitud.
   const handleAdminReplyChange = (requestId, value) => {
     setAdminReplyDrafts((currentDrafts) => ({
       ...currentDrafts,
@@ -1183,11 +1276,13 @@ function App() {
     }))
   }
 
+  // Recupera el borrador activo (o respuesta ya guardada).
   const getAdminReplyDraft = (requestItem) => {
     const draftValue = adminReplyDrafts[requestItem.id]
     return draftValue ?? requestItem.adminReply ?? ''
   }
 
+  // Publica la respuesta del admin y guarda fecha de respuesta.
   const handleReplyRequest = (requestId) => {
     const requestToReply = customerRequests.find((requestItem) => requestItem.id === requestId)
 
@@ -1214,12 +1309,15 @@ function App() {
     )
   }
 
+  // Borra una solicitud del listado.
   const handleDeleteRequest = (requestId) => {
     setCustomerRequests((currentRequests) =>
       currentRequests.filter((requestItem) => requestItem.id !== requestId),
     )
   }
 
+  // Handlers de CRUD de productos en panel admin.
+  // Actualiza formulario de producto del panel admin.
   const handleProductInputChange = (event) => {
     const { name, value } = event.target
     setProductForm((currentForm) => ({ ...currentForm, [name]: value }))
@@ -1233,6 +1331,7 @@ function App() {
     }
   }
 
+  // Carga una imagen local y la convierte a data URL para previsualizar/guardar.
   const handleProductImageFileChange = (event) => {
     const selectedFile = event.target.files?.[0]
 
@@ -1270,6 +1369,7 @@ function App() {
     fileReader.readAsDataURL(selectedFile)
   }
 
+  // Reinicia el formulario de producto a valores iniciales.
   const resetProductForm = () => {
     setProductForm({
       name: '',
@@ -1280,6 +1380,7 @@ function App() {
     })
   }
 
+  // Crea o actualiza producto segun si hay una edicion activa.
   const handleCreateProduct = (event) => {
     event.preventDefault()
 
@@ -1345,6 +1446,7 @@ function App() {
     setProductSuccess('Producto añadido correctamente.')
   }
 
+  // Carga datos del producto en el formulario para editar.
   const handleStartEditProduct = (product) => {
     setEditingProductId(product.id)
     setProductForm({
@@ -1358,6 +1460,7 @@ function App() {
     setProductSuccess('')
   }
 
+  // Cancela la edicion actual y limpia formulario.
   const handleCancelEditProduct = () => {
     setEditingProductId(null)
     resetProductForm()
@@ -1365,6 +1468,7 @@ function App() {
     setProductSuccess('')
   }
 
+  // Borra un producto y lo retira tambien del carrito.
   const handleDeleteProduct = (productId, productName) => {
     const confirmed = window.confirm(`¿Seguro que quieres borrar "${productName}"?`)
 
