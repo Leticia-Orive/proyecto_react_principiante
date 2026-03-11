@@ -149,8 +149,14 @@ const DEFAULT_PRODUCT_ROWS = [
   [56, 'Sudadera cropped rosa', 'Sudaderas', 36.5, 'M - XXL', 'Sudadera cropped de color rosa con capucha y diseño moderno para un look urbano y femenino.', '/images/sudadera-cropped-rosa.webp', ['M', 'L', 'XL', 'XXL']],
   [57, 'Pantalones palazzo estampados', 'Pantalones', 54.5, '36 - 46', 'Pantalones palazzo con estampado vibrante y tejido fluido para un look elegante y cómodo.', '/images/pantalones-palazzo-estampados.webp', ['36', '38', '40', '42', '44', '46']],
   [58, 'Vestido largo estampado', 'Vestidos', 84.99, 'S - L', 'Vestido largo con estampado vibrante y tejido ligero para un look elegante y cómodo en eventos especiales.', '/images/vestido-largo-estampado.webp', ['S', 'M', 'L']],
-  
-]
+  [59, 'Zapato de tacón elegante', 'Zapatos especiales', 89.99, '35 - 41', 'Zapato de tacón con diseño elegante y cómodo para eventos formales.', '/images/zapato-tacon-elegante.webp', ['35', '36', '37', '38', '39', '40', '41']],
+  [60, 'Bolso bandolera cuero', 'Accesorios', 49.95, 'Unica', 'Bolso bandolera de cuero con diseño clásico y compartimentos funcionales para uso diario.', '/images/bolso-bandolera-cuero.webp', ['Unica']],
+  [61, 'Chaqueta impermeable urbana', 'Chaquetas', 79.99, 'S - XL', 'Chaqueta impermeable con diseño urbano y detalles reflectantes para protección en días lluviosos.', '/images/chaqueta-impermeable-urbana.webp', ['S', 'M', 'L', 'XL']],
+  [62, 'Pantalón de chándal cómodo', 'Pantalones', 39.5, '36 - 46', 'Pantalón de chándal con tejido suave y cintura elástica para un ajuste cómodo durante el ejercicio o el descanso.', '/images/pantalon-chandal-comodo.webp', ['36', '38', '40', '42', '44', '46']],
+
+  ]
+
+
 
 const DEFAULT_PRODUCTS = DEFAULT_PRODUCT_ROWS.map(
   ([id, name, category, price, size, description, image, sizes]) => ({
@@ -517,6 +523,10 @@ function App() {
   // Estado visual de producto (detalle y talla elegida por tarjeta).
   const [selectedProduct, setSelectedProduct] = useState(null)
   const [selectedSizes, setSelectedSizes] = useState({})
+  const [cartModalProduct, setCartModalProduct] = useState(null)
+  const [cartModalSize, setCartModalSize] = useState('')
+  const [cartModalQuantity, setCartModalQuantity] = useState('1')
+  const [cartModalError, setCartModalError] = useState('')
 
   // Filtros de catalogo.
   const [selectedCategory, setSelectedCategory] = useState(() => {
@@ -1030,7 +1040,7 @@ function App() {
   }
 
   // Agrega al carrito (o incrementa cantidad) para producto + talla.
-  const handleAddToCart = (productToAdd, chosenSize) => {
+  const handleAddToCart = (productToAdd, chosenSize, quantityToAdd = 1) => {
     setCart((currentCart) => {
       const existingProduct = currentCart.find(
         (item) => item.id === productToAdd.id && item.selectedSize === chosenSize,
@@ -1039,18 +1049,55 @@ function App() {
       if (existingProduct) {
         return currentCart.map((item) =>
           item.id === productToAdd.id && item.selectedSize === chosenSize
-            ? { ...item, quantity: item.quantity + 1 }
+            ? { ...item, quantity: item.quantity + quantityToAdd }
             : item,
         )
       }
 
-      return [...currentCart, { ...productToAdd, selectedSize: chosenSize, quantity: 1 }]
+      return [...currentCart, { ...productToAdd, selectedSize: chosenSize, quantity: quantityToAdd }]
     })
 
     setIsCartNoticeClosing(false)
-    setCartNoticeText(`Agregado: ${productToAdd.name} talla ${chosenSize}`)
+    setCartNoticeText(
+      `Agregado: ${productToAdd.name} talla ${chosenSize} x${quantityToAdd}`,
+    )
     setShowCartNotice(true)
     setCartNoticeId((currentId) => currentId + 1)
+  }
+
+  // Abre modal para elegir cuantas unidades agregar al carrito.
+  const handleOpenAddToCartModal = (product, chosenSize) => {
+    setCartModalProduct(product)
+    setCartModalSize(chosenSize)
+    setCartModalQuantity('1')
+    setCartModalError('')
+  }
+
+  // Cierra modal de cantidad para agregar al carrito.
+  const handleCloseAddToCartModal = () => {
+    setCartModalProduct(null)
+    setCartModalSize('')
+    setCartModalQuantity('1')
+    setCartModalError('')
+  }
+
+  // Valida y confirma la cantidad para agregar al carrito.
+  const handleConfirmAddToCart = (event) => {
+    event.preventDefault()
+
+    if (!cartModalProduct) {
+      return
+    }
+
+    const parsedQuantity = Number.parseInt(cartModalQuantity, 10)
+
+    if (!Number.isInteger(parsedQuantity) || parsedQuantity <= 0) {
+      setCartModalError('Ingresa una cantidad válida (mínimo 1).')
+      return
+    }
+
+    handleAddToCart(cartModalProduct, cartModalSize, parsedQuantity)
+    handleCloseAddToCartModal()
   }
 
   // Abre modal de detalle de producto.
@@ -1830,7 +1877,11 @@ function App() {
               <button
                 type="button"
                 className="add-button"
-                onClick={() => handleAddToCart(product, selectedSize)}
+                  onClick={() =>
+                    isAdmin
+                      ? handleAddToCart(product, selectedSize)
+                      : handleOpenAddToCartModal(product, selectedSize)
+                  }
               >
                 Agregar al carrito
               </button>
@@ -1900,6 +1951,52 @@ function App() {
                 Comprar ahora
               </button>
             )}
+          </div>
+        </div>
+      )}
+
+      {cartModalProduct && !isAdmin && (
+        <div className="product-modal" role="dialog" aria-modal="true" aria-label="Cantidad para agregar al carrito">
+          <div className="product-modal__content cart-quantity-modal">
+            <button
+              type="button"
+              className="product-modal__close"
+              onClick={handleCloseAddToCartModal}
+              aria-label="Cerrar selector de cantidad"
+            >
+              ×
+            </button>
+            <h3>Agregar al carrito</h3>
+            <p className="cart-quantity-modal__meta">Producto: {cartModalProduct.name}</p>
+            <p className="cart-quantity-modal__meta">Talla: {cartModalSize}</p>
+
+            <form className="cart-quantity-modal__form" onSubmit={handleConfirmAddToCart}>
+              <label htmlFor="cart-quantity-input">Unidades</label>
+              <input
+                id="cart-quantity-input"
+                type="number"
+                min="1"
+                step="1"
+                value={cartModalQuantity}
+                onChange={(event) => {
+                  setCartModalQuantity(event.target.value)
+                  if (cartModalError) {
+                    setCartModalError('')
+                  }
+                }}
+                autoFocus
+              />
+              {cartModalError && <p className="cart-quantity-modal__error">{cartModalError}</p>}
+
+              <div className="cart-quantity-modal__actions">
+                <button type="button" className="cancel-button" onClick={handleCloseAddToCartModal}>
+                  Cancelar
+                </button>
+                <button type="submit" className="add-button">
+                  Confirmar
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

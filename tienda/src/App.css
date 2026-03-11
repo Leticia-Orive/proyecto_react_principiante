@@ -947,6 +947,44 @@
   color: #334155;
 }
 
+.cart-quantity-modal {
+  width: min(420px, 100%);
+}
+
+.cart-quantity-modal__meta {
+  margin: 0.5rem 0 0;
+  color: #475569;
+}
+
+.cart-quantity-modal__form {
+  margin-top: 0.9rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.cart-quantity-modal__form label {
+  color: #334155;
+}
+
+.cart-quantity-modal__form input {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0.45rem 0.6rem;
+  font: inherit;
+}
+
+.cart-quantity-modal__error {
+  margin: 0;
+  color: #b91c1c;
+}
+
+.cart-quantity-modal__actions {
+  margin-top: 0.35rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.55rem;
+}
+
 .admin-delete-button {
   border: 1px solid #fecaca;
   background: #fff1f2;
