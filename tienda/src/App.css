@@ -985,6 +985,45 @@
   gap: 0.55rem;
 }
 
+.checkout-modal {
+  width: min(520px, 100%);
+}
+
+.checkout-modal__summary {
+  margin: 0.45rem 0 0;
+  color: #475569;
+}
+
+.checkout-modal__form {
+  margin-top: 0.9rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.checkout-modal__form label {
+  color: #334155;
+}
+
+.checkout-modal__form select,
+.checkout-modal__form textarea {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0.5rem 0.6rem;
+  font: inherit;
+}
+
+.checkout-modal__error {
+  margin: 0;
+  color: #b91c1c;
+}
+
+.checkout-modal__actions {
+  margin-top: 0.35rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.55rem;
+}
+
 .admin-delete-button {
   border: 1px solid #fecaca;
   background: #fff1f2;

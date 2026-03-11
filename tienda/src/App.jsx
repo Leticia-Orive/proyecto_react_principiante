@@ -24,6 +24,11 @@ const SORT_STORAGE_KEY = 'tienda-sort-order'
 const CATEGORY_STORAGE_KEY = 'tienda-selected-category'
 const REQUESTS_STORAGE_KEY = 'tienda-customer-requests'
 const SEEN_REPLIES_STORAGE_KEY = 'tienda-seen-replies'
+// Reglas de envio configurables del checkout.
+const DELIVERY_FEE = 5
+const NON_PENINSULA_DELIVERY_FEE = 10
+const FREE_SHIPPING_THRESHOLD = 30
+const NON_PENINSULA_FREE_SHIPPING_THRESHOLD = 100
 
 // Imagen por defecto y catalogo de rutas sugeridas para el selector admin.
 const DEFAULT_PRODUCT_IMAGE = '/images/camiseta-blanca.jpg'
@@ -527,6 +532,16 @@ function App() {
   const [cartModalSize, setCartModalSize] = useState('')
   const [cartModalQuantity, setCartModalQuantity] = useState('1')
   const [cartModalError, setCartModalError] = useState('')
+  // Estado del checkout: controla modal, formulario y errores de validacion.
+  const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false)
+  const [checkoutForm, setCheckoutForm] = useState({
+    deliveryType: 'domicilio',
+    deliveryZone: 'peninsula',
+    paymentMethod: 'tarjeta',
+    deliveryAddress: '',
+    deliveryNotes: '',
+  })
+  const [checkoutError, setCheckoutError] = useState('')
 
   // Filtros de catalogo.
   const [selectedCategory, setSelectedCategory] = useState(() => {
@@ -631,6 +646,37 @@ function App() {
   const totalPrice = useMemo(
     () => cart.reduce((accumulator, item) => accumulator + item.price * item.quantity, 0),
     [cart],
+  )
+
+  // Calcula el coste de envio segun tipo de entrega, zona y subtotal.
+  // Peninsula: 5 EUR y gratis al superar 30 EUR.
+  // Fuera de peninsula/internacional: 10 EUR, baja a 5 EUR al superar 30 EUR y gratis al superar 100 EUR.
+  const checkoutShippingFee = useMemo(
+    () => {
+      if (checkoutForm.deliveryType !== 'domicilio') {
+        return 0
+      }
+
+      if (checkoutForm.deliveryZone !== 'peninsula') {
+        if (totalPrice > NON_PENINSULA_FREE_SHIPPING_THRESHOLD) {
+          return 0
+        }
+
+        if (totalPrice > FREE_SHIPPING_THRESHOLD) {
+          return DELIVERY_FEE
+        }
+
+        return NON_PENINSULA_DELIVERY_FEE
+      }
+
+      return totalPrice <= FREE_SHIPPING_THRESHOLD ? DELIVERY_FEE : 0
+    },
+    [checkoutForm.deliveryType, checkoutForm.deliveryZone, totalPrice],
+  )
+
+  const checkoutFinalTotal = useMemo(
+    () => totalPrice + checkoutShippingFee,
+    [totalPrice, checkoutShippingFee],
   )
 
   const passwordChecks = useMemo(() => {
@@ -996,6 +1042,15 @@ function App() {
   const handleLogout = () => {
     setCurrentUser(null)
     setIsClearCartPromptOpen(false)
+    setIsCheckoutModalOpen(false)
+    setCheckoutError('')
+    setCheckoutForm({
+      deliveryType: 'domicilio',
+      deliveryZone: 'peninsula',
+      paymentMethod: 'tarjeta',
+      deliveryAddress: '',
+      deliveryNotes: '',
+    })
     setShowReplyNotice(false)
     setReplyNoticeCount(0)
     setShowCartNotice(false)
@@ -1041,6 +1096,7 @@ function App() {
 
   // Agrega al carrito (o incrementa cantidad) para producto + talla.
   const handleAddToCart = (productToAdd, chosenSize, quantityToAdd = 1) => {
+    // Si ya existe el mismo producto con la misma talla, suma unidades en vez de duplicar linea.
     setCart((currentCart) => {
       const existingProduct = currentCart.find(
         (item) => item.id === productToAdd.id && item.selectedSize === chosenSize,
@@ -1057,6 +1113,7 @@ function App() {
       return [...currentCart, { ...productToAdd, selectedSize: chosenSize, quantity: quantityToAdd }]
     })
 
+    // Muestra un aviso breve para confirmar al usuario lo que se agrego al carrito.
     setIsCartNoticeClosing(false)
     setCartNoticeText(
       `Agregado: ${productToAdd.name} talla ${chosenSize} x${quantityToAdd}`,
@@ -1089,6 +1146,7 @@ function App() {
       return
     }
 
+    // Convierte la entrada del input a numero entero para evitar valores invalidos.
     const parsedQuantity = Number.parseInt(cartModalQuantity, 10)
 
     if (!Number.isInteger(parsedQuantity) || parsedQuantity <= 0) {
@@ -1142,6 +1200,7 @@ function App() {
       return
     }
 
+    // Si al restar llega a cero, elimina esa fila del carrito.
     setCart((currentCart) =>
       currentCart.flatMap((item) => {
         if (item.id !== productId || item.selectedSize !== selectedSize) {
@@ -1165,23 +1224,99 @@ function App() {
     setIsClearCartPromptOpen(false)
   }
 
-  // Confirma la compra completa del carrito y lo vacia.
+  // Abre el formulario de compra del carrito.
   const handleCheckoutCart = () => {
     if (cart.length === 0) {
       return
     }
 
-    const confirmed = window.confirm(
-      `Confirmar compra de ${totalItems} producto(s) por $${totalPrice.toFixed(2)}?`,
-    )
+    setCheckoutError('')
+    setIsCheckoutModalOpen(true)
+  }
 
-    if (!confirmed) {
+  // Cierra el modal de compra del carrito.
+  const handleCloseCheckoutModal = () => {
+    setIsCheckoutModalOpen(false)
+    setCheckoutError('')
+  }
+
+  // Actualiza formulario de checkout.
+  const handleCheckoutInputChange = (event) => {
+    const { name, value } = event.target
+
+    // Actualiza cualquier campo del checkout por nombre para no duplicar handlers.
+    setCheckoutForm((currentForm) => ({
+      ...currentForm,
+      [name]: value,
+    }))
+
+    if (checkoutError) {
+      setCheckoutError('')
+    }
+  }
+
+  // Valida y confirma la compra con forma de pago y direccion.
+  const handleConfirmCheckout = (event) => {
+    event.preventDefault()
+
+    const deliveryType = checkoutForm.deliveryType.trim()
+    const deliveryZone = checkoutForm.deliveryZone.trim()
+    const deliveryAddress = checkoutForm.deliveryAddress.trim()
+    const deliveryNotes = checkoutForm.deliveryNotes.trim()
+    const paymentMethod = checkoutForm.paymentMethod.trim()
+
+    if (!paymentMethod) {
+      setCheckoutError('Selecciona una forma de pago.')
       return
     }
 
-    window.alert('Compra realizada con exito. Gracias por tu pedido.')
+    if (deliveryType !== 'domicilio' && deliveryType !== 'tienda') {
+      setCheckoutError('Selecciona el tipo de entrega.')
+      return
+    }
+
+    if (deliveryType === 'domicilio' && !deliveryAddress) {
+      setCheckoutError('Indica la direccion de entrega.')
+      return
+    }
+
+    if (
+      deliveryType === 'domicilio' &&
+      deliveryZone !== 'peninsula' &&
+      deliveryZone !== 'fuera-peninsula' &&
+      deliveryZone !== 'internacional'
+    ) {
+      setCheckoutError('Selecciona una zona de envio valida.')
+      return
+    }
+
+    // Texto amigable para confirmar al usuario la zona que eligio.
+    const deliveryZoneLabel =
+      deliveryZone === 'fuera-peninsula'
+        ? 'Fuera de la peninsula'
+        : deliveryZone === 'internacional'
+          ? 'Otro pais'
+          : 'Peninsula'
+
+    const deliverySummary =
+      deliveryType === 'tienda'
+        ? 'Recogida en tienda (sin gasto de envio)'
+        : `Entrega a domicilio (${deliveryZoneLabel}): ${deliveryAddress}`
+
+    window.alert(
+      `Compra realizada con exito.\n\nForma de pago: ${paymentMethod}\nEntrega: ${deliverySummary}\nSubtotal: $${totalPrice.toFixed(2)}\nEnvio: $${checkoutShippingFee.toFixed(2)}\nTotal final: $${checkoutFinalTotal.toFixed(2)}${deliveryNotes ? `\nNotas: ${deliveryNotes}` : ''}.`,
+    )
     setCart([])
     setIsClearCartPromptOpen(false)
+    setIsCheckoutModalOpen(false)
+    setCheckoutError('')
+    setCheckoutForm({
+      deliveryType: 'domicilio',
+      deliveryZone: 'peninsula',
+      paymentMethod: 'tarjeta',
+      deliveryAddress: '',
+      deliveryNotes: '',
+    })
   }
 
   // Aumenta en 1 la cantidad de un item del carrito.
@@ -1893,6 +2028,7 @@ function App() {
                   Comprar ahora
                 </button>
               )}
+              {/* Cliente abre modal para elegir unidades; admin agrega directo para gestion rapida. */}
               <button
                 type="button"
                 className="add-button"
@@ -1974,6 +2110,7 @@ function App() {
         </div>
       )}
 
+      {/* Modal de cantidad: evita agregar siempre 1 unidad y mejora el flujo de compra. */}
       {cartModalProduct && !isAdmin && (
         <div className="product-modal" role="dialog" aria-modal="true" aria-label="Cantidad para agregar al carrito">
           <div className="product-modal__content cart-quantity-modal">
@@ -2013,6 +2150,117 @@ function App() {
                 </button>
                 <button type="submit" className="add-button">
                   Confirmar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isCheckoutModalOpen && !isAdmin && (
+        <div className="product-modal" role="dialog" aria-modal="true" aria-label="Formulario de pago y entrega">
+          <div className="product-modal__content checkout-modal">
+            <button
+              type="button"
+              className="product-modal__close"
+              onClick={handleCloseCheckoutModal}
+              aria-label="Cerrar formulario de compra"
+            >
+              ×
+            </button>
+
+            <h3>Finalizar compra</h3>
+            <p className="checkout-modal__summary">Productos: {totalItems}</p>
+            <p className="checkout-modal__summary">Subtotal: ${totalPrice.toFixed(2)}</p>
+            <p className="checkout-modal__summary">Envio: ${checkoutShippingFee.toFixed(2)}</p>
+            <p className="checkout-modal__summary">Total final: ${checkoutFinalTotal.toFixed(2)}</p>
+            {/* Mensaje dinamico para explicar por que el envio sale gratis, rebajado o normal. */}
+            {checkoutForm.deliveryType === 'domicilio' && checkoutForm.deliveryZone === 'peninsula' && (
+              <p className="checkout-modal__summary">
+                {totalPrice > FREE_SHIPPING_THRESHOLD
+                  ? 'Envio gratis aplicado por compra superior a $30.00.'
+                  : 'Envio gratis a domicilio en compras superiores a $30.00.'}
+              </p>
+            )}
+            {checkoutForm.deliveryType === 'domicilio' && checkoutForm.deliveryZone !== 'peninsula' && (
+              <p className="checkout-modal__summary">
+                {totalPrice > NON_PENINSULA_FREE_SHIPPING_THRESHOLD
+                  ? 'Envio gratis aplicado por compra superior a $100.00 fuera de peninsula u otro pais.'
+                  : totalPrice > FREE_SHIPPING_THRESHOLD
+                    ? 'Envio rebajado a $5.00 por compra superior a $30.00 fuera de peninsula u otro pais.'
+                    : 'Envio fijo de $10.00 para fuera de la peninsula u otro pais.'}
+              </p>
+            )}
+
+            <form className="checkout-modal__form" onSubmit={handleConfirmCheckout}>
+              <label htmlFor="checkout-delivery-type">Tipo de entrega</label>
+              <select
+                id="checkout-delivery-type"
+                name="deliveryType"
+                value={checkoutForm.deliveryType}
+                onChange={handleCheckoutInputChange}
+              >
+                <option value="domicilio">Entrega a domicilio</option>
+                <option value="tienda">Recoger en tienda (sin envio)</option>
+              </select>
+
+              <label htmlFor="checkout-payment-method">Forma de pago</label>
+              <select
+                id="checkout-payment-method"
+                name="paymentMethod"
+                value={checkoutForm.paymentMethod}
+                onChange={handleCheckoutInputChange}
+              >
+                <option value="tarjeta">Tarjeta</option>
+                <option value="bizum">Bizum</option>
+                <option value="paypal">PayPal</option>
+                <option value="contra-reembolso">Contra reembolso</option>
+              </select>
+
+              {checkoutForm.deliveryType === 'domicilio' && (
+                <>
+                  <label htmlFor="checkout-delivery-zone">Zona de envio</label>
+                  <select
+                    id="checkout-delivery-zone"
+                    name="deliveryZone"
+                    value={checkoutForm.deliveryZone}
+                    onChange={handleCheckoutInputChange}
+                  >
+                    <option value="peninsula">Peninsula</option>
+                    <option value="fuera-peninsula">Fuera de la peninsula</option>
+                    <option value="internacional">Otro pais</option>
+                  </select>
+
+                  <label htmlFor="checkout-delivery-address">Direccion de entrega</label>
+                  <textarea
+                    id="checkout-delivery-address"
+                    name="deliveryAddress"
+                    rows="3"
+                    placeholder="Ej: Calle Mayor 15, 3B, Madrid"
+                    value={checkoutForm.deliveryAddress}
+                    onChange={handleCheckoutInputChange}
+                  />
+                </>
+              )}
+
+              <label htmlFor="checkout-delivery-notes">Indicaciones (opcional)</label>
+              <textarea
+                id="checkout-delivery-notes"
+                name="deliveryNotes"
+                rows="2"
+                placeholder="Ej: Porteria, horario de tarde..."
+                value={checkoutForm.deliveryNotes}
+                onChange={handleCheckoutInputChange}
+              />
+
+              {checkoutError && <p className="checkout-modal__error">{checkoutError}</p>}
+
+              <div className="checkout-modal__actions">
+                <button type="button" className="cancel-button" onClick={handleCloseCheckoutModal}>
+                  Cancelar
+                </button>
+                <button type="submit" className="cart__checkout-button">
+                  Confirmar compra
                 </button>
               </div>
             </form>
