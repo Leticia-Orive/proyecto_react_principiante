@@ -1165,6 +1165,25 @@ function App() {
     setIsClearCartPromptOpen(false)
   }
 
+  // Confirma la compra completa del carrito y lo vacia.
+  const handleCheckoutCart = () => {
+    if (cart.length === 0) {
+      return
+    }
+
+    const confirmed = window.confirm(
+      `Confirmar compra de ${totalItems} producto(s) por $${totalPrice.toFixed(2)}?`,
+    )
+
+    if (!confirmed) {
+      return
+    }
+
+    window.alert('Compra realizada con exito. Gracias por tu pedido.')
+    setCart([])
+    setIsClearCartPromptOpen(false)
+  }
+
   // Aumenta en 1 la cantidad de un item del carrito.
   const handleIncreaseQuantity = (productId, selectedSize) => {
     setCart((currentCart) =>
@@ -2013,6 +2032,7 @@ function App() {
           onDecreaseQuantity={handleDecreaseQuantity}
           onIncreaseQuantity={handleIncreaseQuantity}
           onRemoveFromCart={handleRemoveFromCart}
+          onCheckout={handleCheckoutCart}
         />
       )}
     </main>

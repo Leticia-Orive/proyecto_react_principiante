@@ -9,6 +9,7 @@ function CartSection({
   onDecreaseQuantity,
   onIncreaseQuantity,
   onRemoveFromCart,
+  onCheckout,
 }) {
   return (
     <section className="cart" aria-label="Carrito de compras">
@@ -77,7 +78,12 @@ function CartSection({
               </li>
             ))}
           </ul>
-          <p className="cart__total">Total: ${totalPrice.toFixed(2)}</p>
+          <div className="cart__footer">
+            <p className="cart__total">Total: ${totalPrice.toFixed(2)}</p>
+            <button type="button" className="cart__checkout-button" onClick={onCheckout}>
+              Comprar
+            </button>
+          </div>
         </>
       )}
     </section>
