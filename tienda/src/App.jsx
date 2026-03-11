@@ -88,229 +88,82 @@ const DEFAULT_ADMIN_USER = {
   role: 'admin',
 }
 
-// Catalogo base inicial de la tienda (si no hay datos guardados).
-const DEFAULT_PRODUCTS = [
-  {
-    id: 1,
-    name: 'Camiseta básica blanca',
-    category: 'Camisetas',
-    price: 19.99,
-    size: 'S - XL',
-    sizes: ['S', 'M', 'L', 'XL'],
-    description:
-      'Camiseta de algodón suave para uso diario. Corte regular, ligera y fácil de combinar con jeans o shorts.',
-    image: '/images/camiseta-blanca.jpg',
-  },
-  {
-    id: 2,
-    name: 'Jeans rectos azul',
-    category: 'Pantalones',
-    price: 39.99,
-    size: '36 - 46',
-    sizes: ['36', '38', '40', '42', '44', '46'],
-    description:
-      'Jeans rectos de tiro medio con tejido resistente y cómodo. Perfectos para looks casuales y urbanos.',
-    image: '/images/jeans-azul.avif',
-  },
-  {
-    id: 3,
-    name: 'Sudadera oversize gris',
-    category: 'Sudaderas',
-    price: 34.99,
-    size: 'M - XXL',
-    sizes: ['M', 'L', 'XL', 'XXL'],
-    description:
-      'Sudadera oversize con interior afelpado que aporta abrigo y confort, ideal para días frescos.',
-    image: '/images/sudadera-gris.png',
-  },
-  {
-    id: 4,
-    name: 'Chaqueta denim negra',
-    category: 'Chaquetas',
-    price: 54.99,
-    size: 'S - XL',
-    sizes: ['S', 'M', 'L', 'XL'],
-    description:
-      'Chaqueta denim negra con acabado moderno y estructura firme. Una prenda versátil para todo el año.',
-    image: '/images/chaqueta-denim.avif',
-  },
-  {
-    id: 5,
-    name: 'Vestido midi floral',
-    category: 'Vestidos',
-    price: 44.99,
-    size: 'S - L',
-    sizes: ['S', 'M', 'L'],
-    description:
-      'Vestido midi floral de caída ligera, ideal para salidas de día o eventos informales.',
-    image: '/images/vestido-floral.webp',
-  },
-  {
-    id: 6,
-    name: 'Pantalón cargo beige',
-    category: 'Pantalones',
-    price: 42.5,
-    size: '38 - 46',
-    sizes: ['38', '40', '42', '44', '46'],
-    description:
-      'Pantalón cargo con bolsillos funcionales y ajuste cómodo, pensado para un estilo práctico y actual.',
-    image: '/images/cargo-beige.jpg',
-  },
-  {
-    id: 7,
-    name: 'Camiseta estampada',
-    category: 'Camisetas',
-    price: 22.5,
-    size: 'S - XL',
-    sizes: ['S', 'M', 'L', 'XL'],
-    description:
-      'Camiseta estampada con diseño frontal, confeccionada en tejido transpirable para uso diario.',
-    image: '/images/camiseta-estampada.webp',
-  },
-  {
-    id: 8,
-    name: 'Bomber verde oliva',
-    category: 'Chaquetas',
-    price: 59.9,
-    size: 'M - XXL',
-    sizes: ['M', 'L', 'XL', 'XXL'],
-    description:
-      'Chaqueta bomber con cierre frontal y puños elásticos, ideal para completar un look urbano.',
-    image: '/images/bomber-oliva.webp',
-  },
-  {
-    id: 9,
-    name: 'Gorra urbana negra',
-    category: 'Accesorios',
-    price: 18.9,
-    size: 'Unica',
-    sizes: ['Unica'],
-    description:
-      'Gorra ajustable con visera curva y tejido ligero. Ideal para complementar looks casuales.',
-    image: '/images/gorra-negra.webp',
-  },
-  {
-    id: 10,
-    name: 'Bandolera minimal beige',
-    category: 'Accesorios',
-    price: 26.5,
-    size: 'Unica',
-    sizes: ['Unica'],
-    description:
-      'Bandolera compacta con compartimentos interiores y correa regulable para uso diario.',
-    image: '/images/bandolera.webp',
-  },
-  {
-    id: 11,
-    name: 'Zapatillas blancas urban',
-    category: 'Calzados',
-    price: 64.9,
-    size: '38 - 44',
-    sizes: ['38', '39', '40', '41', '42', '43', '44'],
-    description:
-      'Zapatillas de estilo urbano con suela flexible y plantilla acolchada para mayor comodidad.',
-    image: '/images/zapatillas-blancas.webp',
-  },
-  {
-    id: 12,
-    name: 'Botines negros clasicos',
-    category: 'Calzados',
-    price: 79.0,
-    size: '36 - 42',
-    sizes: ['36', '37', '38', '39', '40', '41', '42'],
-    description:
-      'Botines de corte medio con acabado mate y suela antideslizante para uso diario.',
-    image: '/images/botines-negros.jpg',
-  },
-  {
-    id: 13,
-    name: 'Camiseta premium negra',
-    category: 'Camisetas',
-    price: 24.99,
-    size: 'S - XL',
-    sizes: ['S', 'M', 'L', 'XL'],
-    description:
-      'Camiseta premium con tacto suave y corte recto para uso diario.',
-    image: '/images/camiseta-pato.avif',
-  },
-  {
-    id: 14,
-    name: 'Jeans slim azul oscuro',
-    category: 'Pantalones',
-    price: 45.5,
-    size: '36 - 46',
-    sizes: ['36', '38', '40', '42', '44', '46'],
-    description:
-      'Jeans slim de tiro medio con tejido elastico y ajuste comodo.',
-    image: '/images/pantalones-baggy.webp',
-  },
-  {
-    id: 15,
-    name: 'Sudadera con capucha arena',
-    category: 'Sudaderas',
-    price: 38.99,
-    size: 'M - XXL',
-    sizes: ['M', 'L', 'XL', 'XXL'],
-    description:
-      'Sudadera con capucha y bolsillo frontal, ideal para entretiempo.',
-    image: '/images/sudadera-baggy.jpg',
-  },
-  {
-    id: 16,
-    name: 'Chaqueta denim azul',
-    category: 'Chaquetas',
-    price: 57.9,
-    size: 'S - XL',
-    sizes: ['S', 'M', 'L', 'XL'],
-    description:
-      'Chaqueta denim de estructura ligera para looks casuales.',
-    image: '/images/chaqueta-champions.jpg',
-  },
-  {
-    id: 17,
-    name: 'Pantalon cargo negro',
-    category: 'Pantalones',
-    price: 46.75,
-    size: '38 - 46',
-    sizes: ['38', '40', '42', '44', '46'],
-    description:
-      'Cargo de fit relajado con bolsillos laterales y tejido resistente.',
-    image: '/images/pantalones-negros.webp',
-  },
-  {
-    id: 18,
-    name: 'Bomber urbana negra',
-    category: 'Chaquetas',
-    price: 62.0,
-    size: 'M - XXL',
-    sizes: ['M', 'L', 'XL', 'XXL'],
-    description:
-      'Bomber urbana con cuello rib y acabado minimalista.',
-    image: '/images/chaqueta-bomber.webp',
-  },
-  {
-    id: 19,
-    name: 'Vestido  verano',
-    category: 'Vestidos',
-    price: 47.25,
-    size: 'S - L',
-    sizes: ['S', 'M', 'L'],
-    description:
-      'Vestido ligero de corte midi con caida fluida para dias calidos.',
-    image: '/images/vestido-sweetra.webp',
-  },
-  {
-    id: 20,
-    name: 'Camiseta oversize azul',
-    category: 'Camisetas',
-    price: 21.9,
-    size: 'M - XXL',
-    sizes: ['M', 'L', 'XL', 'XXL'],
-    description:
-      'Camiseta oversize de algodon con estilo urbano y comodo.',
-    image: '/images/camiseta-azul.webp',
-  },
+// Catalogo base inicial en formato compacto para reducir lineas.
+// Estructura: [id, nombre, categoria, precio, talla, descripcion, imagen, tallas?]
+const DEFAULT_PRODUCT_ROWS = [
+  [1, 'Camiseta básica blanca', 'Camisetas', 19.99, 'S - XL', 'Camiseta de algodón suave para uso diario. Corte regular, ligera y fácil de combinar con jeans o shorts.', '/images/camiseta-blanca.jpg', ['S', 'M', 'L', 'XL']],
+  [2, 'Jeans rectos azul', 'Pantalones', 39.99, '36 - 46', 'Jeans rectos de tiro medio con tejido resistente y cómodo. Perfectos para looks casuales y urbanos.', '/images/jeans-azul.avif', ['36', '38', '40', '42', '44', '46']],
+  [3, 'Sudadera oversize gris', 'Sudaderas', 34.99, 'M - XXL', 'Sudadera oversize con interior afelpado que aporta abrigo y confort, ideal para días frescos.', '/images/sudadera-gris.png', ['M', 'L', 'XL', 'XXL']],
+  [4, 'Chaqueta denim negra', 'Chaquetas', 54.99, 'S - XL', 'Chaqueta denim negra con acabado moderno y estructura firme. Una prenda versátil para todo el año.', '/images/chaqueta-denim.avif', ['S', 'M', 'L', 'XL']],
+  [5, 'Vestido midi floral', 'Vestidos', 44.99, 'S - L', 'Vestido midi floral de caída ligera, ideal para salidas de día o eventos informales.', '/images/vestido-floral.webp', ['S', 'M', 'L']],
+  [6, 'Pantalón cargo beige', 'Pantalones', 42.5, '38 - 46', 'Pantalón cargo con bolsillos funcionales y ajuste cómodo, pensado para un estilo práctico y actual.', '/images/cargo-beige.jpg', ['38', '40', '42', '44', '46']],
+  [7, 'Camiseta estampada', 'Camisetas', 22.5, 'S - XL', 'Camiseta estampada con diseño frontal, confeccionada en tejido transpirable para uso diario.', '/images/camiseta-estampada.webp', ['S', 'M', 'L', 'XL']],
+  [8, 'Bomber verde oliva', 'Chaquetas', 59.9, 'M - XXL', 'Chaqueta bomber con cierre frontal y puños elásticos, ideal para completar un look urbano.', '/images/bomber-oliva.webp', ['M', 'L', 'XL', 'XXL']],
+  [9, 'Gorra urbana negra', 'Accesorios', 18.9, 'Unica', 'Gorra ajustable con visera curva y tejido ligero. Ideal para complementar looks casuales.', '/images/gorra-negra.webp', ['Unica']],
+  [10, 'Bandolera minimal beige', 'Accesorios', 26.5, 'Unica', 'Bandolera compacta con compartimentos interiores y correa regulable para uso diario.', '/images/bandolera.webp', ['Unica']],
+  [11, 'Zapatillas blancas urban', 'Calzados', 64.9, '38 - 44', 'Zapatillas de estilo urbano con suela flexible y plantilla acolchada para mayor comodidad.', '/images/zapatillas-blancas.webp', ['38', '39', '40', '41', '42', '43', '44']],
+  [12, 'Botines negros clasicos', 'Calzados', 79.0, '36 - 42', 'Botines de corte medio con acabado mate y suela antideslizante para uso diario.', '/images/botines-negros.jpg', ['36', '37', '38', '39', '40', '41', '42']],
+  [13, 'Camiseta premium negra', 'Camisetas', 24.99, 'S - XL', 'Camiseta premium con tacto suave y corte recto para uso diario.', '/images/camiseta-pato.avif', ['S', 'M', 'L', 'XL']],
+  [14, 'Jeans slim azul oscuro', 'Pantalones', 45.5, '36 - 46', 'Jeans slim de tiro medio con tejido elastico y ajuste comodo.', '/images/pantalones-baggy.webp', ['36', '38', '40', '42', '44', '46']],
+  [15, 'Sudadera con capucha arena', 'Sudaderas', 38.99, 'M - XXL', 'Sudadera con capucha y bolsillo frontal, ideal para entretiempo.', '/images/sudadera-baggy.jpg', ['M', 'L', 'XL', 'XXL']],
+  [16, 'Chaqueta denim azul', 'Chaquetas', 57.9, 'S - XL', 'Chaqueta denim de estructura ligera para looks casuales.', '/images/chaqueta-champions.jpg', ['S', 'M', 'L', 'XL']],
+  [17, 'Pantalon cargo negro', 'Pantalones', 46.75, '38 - 46', 'Cargo de fit relajado con bolsillos laterales y tejido resistente.', '/images/pantalones-negros.webp', ['38', '40', '42', '44', '46']],
+  [18, 'Bomber urbana negra', 'Chaquetas', 62.0, 'M - XXL', 'Bomber urbana con cuello rib y acabado minimalista.', '/images/chaqueta-bomber.webp', ['M', 'L', 'XL', 'XXL']],
+  [19, 'Vestido verano', 'Vestidos', 47.25, 'S - L', 'Vestido ligero de corte midi con caida fluida para dias calidos.', '/images/vestido-sweetra.webp', ['S', 'M', 'L']],
+  [20, 'Camiseta oversize azul', 'Camisetas', 21.9, 'M - XXL', 'Camiseta oversize de algodon con estilo urbano y comodo.', '/images/camiseta-azul.webp', ['M', 'L', 'XL', 'XXL']],
+  [21, 'Vestido ceremonia satinado', 'Ropa especial', 129.99, 'S - L', 'Vestido elegante para ceremonia con caida suave y acabado satinado.', '/images/vestido-camisero.webp', ['S', 'M', 'L']],
+  [22, 'Vestido comunion blanco perla', 'Ropa especial', 149.5, '8 - 14', 'Vestido de comunion con corte clasico y detalles delicados.', '/images/vestido-comunion-perla.webp', ['8', '10', '12', '14']],
+  [23, 'Traje novio clasico azul marino', 'Ropa especial', 239.0, '46 - 54', 'Traje de novio de dos piezas con patron elegante para eventos formales.', '/images/traje-novio-azul-marino.jpg', ['46', '48', '50', '52', '54']],
+  [24, 'Zapato salon ceremonia', 'Zapatos especiales', 94.9, '35 - 41', 'Zapato de salon comodo para bodas, bautizos y celebraciones.', '/images/zapatos-true-nude.webp', ['35', '36', '37', '38', '39', '40', '41']],
+  [25, 'Zapato vestir caballero ceremonia', 'Zapatos especiales', 109.0, '39 - 45', 'Zapato de vestir para novio o invitado con acabado pulido.', '/images/zapatos-mateo.webp', ['39', '40', '41', '42', '43', '44', '45']],
+  [26, 'Sandalia fiesta dorada', 'Zapatos especiales', 79.95, '35 - 41', 'Sandalia de fiesta para ceremonia con sujecion estable y elegante.', '/images/sandalia-fiesta-dorada.webp', ['35', '36', '37', '38', '39', '40', '41']],
+  [27, 'Bolso mano ceremonia', 'Complementos especiales', 39.95, 'Unica', 'Bolso de mano compacto para invitada, ideal para eventos formales.', '/images/bolso-mano-pouch.webp', ['Unica']],
+  [28, 'Tocado elegante comunion', 'Complementos especiales', 29.9, 'Unica', 'Tocado ligero para ceremonia y comunion con estilo delicado.', '/images/tocado-elegante-comunion.jpg', ['Unica']],
+  [29, 'Pañuelo de bolsillo novio', 'Complementos especiales', 14.5, 'Unica', 'Pañuelo de bolsillo para traje de novio o invitado.', '/images/pañuelo-maillonmorphose.webp', ['Unica']],
+  [30, 'Cinturon ceremonia piel', 'Complementos especiales', 24.75, 'Unica', 'Cinturon de piel para traje de ceremonia con hebilla elegante.', '/images/cinturon-ceremonia-piel.webp', ['Unica']],
+  [31, 'Vestido fiesta largo', 'Vestidos', 89.99, 'S - L', 'Vestido de fiesta largo con caida elegante para eventos especiales.', '/images/vestido-fiesta-largo.webp', ['S', 'M', 'L']],
+  [32, 'Mono pantalon ceremonia', 'Ropa especial', 119.5, 'S - L', 'Mono de pantalon para ceremonia con patron moderno y sofisticado.', '/images/mono-pantalon-ceremonia.webp', ['S', 'M', 'L']],
+  [33, 'Zapato comunion niño', 'Zapatos especiales', 49.9, '28 - 35', 'Zapato de comunion para niño con suela antideslizante y diseño clásico.', '/images/zapato-comunion-nino.webp', ['28', '29', '30', '31', '32', '33', '34', '35']],
+  [34, 'Vestido fiesta corto', 'Vestidos', 69.5, 'S - L', 'Vestido de fiesta corto con diseño elegante para eventos especiales.', '/images/vestido-fiesta-corto.webp', ['S', 'M', 'L']],
+  [35, 'Americana ceremonia', 'Ropa especial', 149.99, 'S - XL', 'Americana de ceremonia con corte entallado y detalles elegantes.', '/images/americana-ceremonia.webp', ['S', 'M', 'L', 'XL']],
+  [36, 'Zapato salón fiesta', 'Zapatos especiales', 89.5, '35 - 41', 'Zapato de salón para fiesta con tacón cómodo y diseño sofisticado.', '/images/zapato-salon-fiesta.webp', ['35', '36', '37', '38', '39', '40', '41']],
+  [37, 'Clutch noche elegante', 'Complementos especiales', 44.95, 'Unica', 'Clutch de noche con diseño elegante para eventos formales.', '/images/clutch-noche-elegante.webp', ['Unica']],
+  [38, 'Tocado floral ceremonia', 'Complementos especiales', 34.9, 'Unica', 'Tocado floral para ceremonia con estilo delicado y romántico.', '/images/tocado-floral-ceremonia.webp', ['Unica']],
+  [39, 'Cinturon piel ceremonia', 'Complementos especiales', 29.75, 'Unica', 'Cinturon de piel para ceremonia con hebilla elegante.', '/images/cinturon-piel-ceremonia.webp', ['Unica']],
+  [40, 'Vestido largo verano', 'Vestidos', 79.99, 'S - L', 'Vestido largo de verano con tejido ligero y diseño fresco para días calurosos.', '/images/vestido-largo-verano.webp', ['S', 'M', 'L']],
+  [41, 'Mono corto fiesta', 'Ropa especial', 99.5, 'S - L', 'Mono corto de fiesta con diseño elegante para eventos especiales.', '/images/mono-corto-fiesta.webp', ['S', 'M', 'L']],
+  [42, 'Zapato comunion niña', 'Zapatos especiales', 54.9, '28 - 35', 'Zapato de comunion para niña con suela antideslizante y diseño clásico.', '/images/zapato-comunion-nina.webp', ['28', '29', '30', '31', '32', '33', '34', '35']],
+  [43, 'Vestido cóctel', 'Vestidos', 74.5, 'S - L', 'Vestido de cóctel con diseño elegante y corte favorecedor para eventos especiales.', '/images/vestido-cocktail.webp', ['S', 'M', 'L']],
+  [44, 'Americana ceremonia mujer', 'Ropa especial', 159.99, 'S - XL', 'Americana de ceremonia para mujer con corte entallado y detalles elegantes.', '/images/americana-ceremonia-mujer.webp', ['S', 'M', 'L', 'XL']],
+  [45, 'Zapato salón ceremonia', 'Zapatos especiales', 94.5, '35 - 41', 'Zapato de salón para ceremonia con tacón cómodo y diseño sofisticado.', '/images/zapato-salon-ceremonia.webp', ['35', '36', '37', '38', '39', '40', '41']],
+  [46, 'Clutch noche fiesta', 'Complementos especiales', 49.95, 'Unica', 'Clutch de noche con diseño elegante para eventos formales.', '/images/clutch-noche-fiesta.webp', ['Unica']],
+  [47, 'Tocado elegante ceremonia', 'Complementos especiales', 39.9, 'Unica', 'Tocado elegante para ceremonia con estilo delicado y sofisticado.', '/images/tocado-elegante-ceremonia.webp', ['Unica']],
+  [48, 'Cinturon ceremonia elegante', 'Complementos especiales', 34.75, 'Unica', 'Cinturon de ceremonia con diseño elegante y hebilla sofisticada.', '/images/cinturon-ceremonia-elegante.webp', ['Unica']],
+  [49, 'Vestido largo fiesta', 'Vestidos', 89.99, 'S - L', 'Vestido largo de fiesta con diseño elegante para eventos especiales.', '/images/vestido-fiesta-largo-graduacion.webp', ['S', 'M', 'L']],
+  [50, 'Chaqueta piel sintética', 'Chaquetas', 69.99, 'S - XL', 'Chaqueta de piel sintética con acabado suave y diseño moderno para un look urbano.', '/images/chaqueta-piel-sintetica.webp', ['S', 'M', 'L', 'XL']],
+  [51, 'Pantalón palazzo fluido', 'Pantalones', 49.5, '36 - 46', 'Pantalón palazzo de tejido fluido con cintura elástica para un ajuste cómodo y elegante.', '/images/pantalon-palazzo-fluido.webp', ['36', '38', '40', '42', '44', '46']],
+  [52, 'Zapato deportivo running', 'Calzados', 59.99, '38 - 44', 'Zapato deportivo de running con suela amortiguada y diseño transpirable para mayor comodidad durante el ejercicio.', '/images/zapato-deportivo-running.webp', ['38', '39', '40', '41', '42', '43', '44']],
+  [53, 'Bolso tote grande', 'Accesorios', 34.95, 'Unica', 'Bolso tote grande con compartimentos interiores y asas resistentes para uso diario.', '/images/bolso-tote-grande.webp', ['Unica']],
+  [54, 'Gafas de sol urbanas', 'Accesorios', 24.9, 'Unica', 'Gafas de sol con diseño urbano y protección UV para complementar tus looks de verano.', '/images/gafas-de-sol-urbanas.webp', ['Unica']],
+  [55, 'Cinturon piel casual', 'Accesorios', 29.75, 'Unica', 'Cinturon de piel con hebilla casual para complementar tus looks diarios.', '/images/cinturon-piel-casual.webp', ['Unica']],
+  [56, 'Sudadera cropped rosa', 'Sudaderas', 36.5, 'M - XXL', 'Sudadera cropped de color rosa con capucha y diseño moderno para un look urbano y femenino.', '/images/sudadera-cropped-rosa.webp', ['M', 'L', 'XL', 'XXL']],
+  [57, 'Pantalones palazzo estampados', 'Pantalones', 54.5, '36 - 46', 'Pantalones palazzo con estampado vibrante y tejido fluido para un look elegante y cómodo.', '/images/pantalones-palazzo-estampados.webp', ['36', '38', '40', '42', '44', '46']],
+  [58, 'Vestido largo estampado', 'Vestidos', 84.99, 'S - L', 'Vestido largo con estampado vibrante y tejido ligero para un look elegante y cómodo en eventos especiales.', '/images/vestido-largo-estampado.webp', ['S', 'M', 'L']],
+  
 ]
+
+const DEFAULT_PRODUCTS = DEFAULT_PRODUCT_ROWS.map(
+  ([id, name, category, price, size, description, image, sizes]) => ({
+    id,
+    name,
+    category,
+    price,
+    size,
+    sizes,
+    description,
+    image,
+  }),
+)
 
 // Normaliza texto para comparar sin tildes ni mayusculas/minusculas.
 const normalizeText = (value) =>
@@ -483,12 +336,15 @@ const parseSizeRange = (sizeText) => {
 // Normaliza un producto para garantizar campos minimos coherentes.
 // Normaliza un producto para que siempre tenga descripcion, tallas e imagen consistentes.
 const hydrateProduct = (product) => {
-  const fallbackDescription = `Prenda de la categoría ${product.category} con diseño moderno y cómodo para uso diario.`
+  const normalizedId = Number(product.id)
+  const category = normalizedId === 55 ? 'Accesorios' : product.category
+  const fallbackDescription = `Prenda de la categoría ${category} con diseño moderno y cómodo para uso diario.`
   const sizes = Array.isArray(product.sizes) && product.sizes.length > 0 ? product.sizes : parseSizeRange(product.size)
   const canonicalImage = getCanonicalImageForProduct(product)
 
   return {
     ...product,
+    category,
     sizes,
     description: product.description?.trim() || fallbackDescription,
     image: normalizeProductImagePath(canonicalImage),
