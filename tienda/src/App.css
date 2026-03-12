@@ -801,6 +801,23 @@
   color: #4b5563;
 }
 
+.product-stock {
+  margin: 0.4rem 0;
+  font-weight: 700;
+}
+
+.product-stock--ok {
+  color: #166534;
+}
+
+.product-stock--low {
+  color: #b45309;
+}
+
+.product-stock--out {
+  color: #b91c1c;
+}
+
 .product-price {
   margin: 0.75rem 0 0;
   font-size: 1.2rem;
@@ -843,6 +860,13 @@
 .add-button:hover {
   background-color: #1d4ed8;
   border-color: #1d4ed8;
+}
+
+.add-button:disabled,
+.buy-now-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  filter: grayscale(0.2);
 }
 
 .details-button {

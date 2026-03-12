@@ -26,6 +26,10 @@ const REQUESTS_STORAGE_KEY = 'tienda-customer-requests'
 const SEEN_REPLIES_STORAGE_KEY = 'tienda-seen-replies'
 // Regla comercial del checkout: pago en tienda aplica 10% de descuento.
 const STORE_PAYMENT_DISCOUNT_RATE = 0.1
+// Stock por defecto para productos antiguos que no tenian este campo guardado.
+const DEFAULT_PRODUCT_STOCK = 12
+// Muestra el aviso "Ultimas unidades" cuando el stock es <= 5.
+const LOW_STOCK_THRESHOLD = 5
 
 // Imagen por defecto y catalogo de rutas sugeridas para el selector admin.
 const DEFAULT_PRODUCT_IMAGE = '/images/camiseta-blanca.jpg'
@@ -349,10 +353,13 @@ const hydrateProduct = (product) => {
   const fallbackDescription = `Prenda de la categoría ${category} con diseño moderno y cómodo para uso diario.`
   const sizes = Array.isArray(product.sizes) && product.sizes.length > 0 ? product.sizes : parseSizeRange(product.size)
   const canonicalImage = getCanonicalImageForProduct(product)
+  const parsedStock = Number.parseInt(product.stock, 10)
+  const stock = Number.isInteger(parsedStock) && parsedStock >= 0 ? parsedStock : DEFAULT_PRODUCT_STOCK
 
   return {
     ...product,
     category,
+    stock,
     sizes,
     description: product.description?.trim() || fallbackDescription,
     image: normalizeProductImagePath(canonicalImage),
@@ -422,6 +429,11 @@ const getProductSizeOptions = (product) => {
   return product.size ? [product.size] : []
 }
 
+const getProductStock = (product) => {
+  const parsedStock = Number.parseInt(product?.stock, 10)
+  return Number.isInteger(parsedStock) && parsedStock >= 0 ? parsedStock : DEFAULT_PRODUCT_STOCK
+}
+
 // Limpia campos opcionales de solicitudes de cliente.
 // Normaliza solicitudes de cliente para evitar null/undefined en respuestas.
 const hydrateCustomerRequest = (requestItem) => ({
@@ -488,6 +500,7 @@ function App() {
     name: '',
     category: '',
     price: '',
+    stock: '',
     size: '',
     image: DEFAULT_PRODUCT_IMAGE,
   })
@@ -766,8 +779,8 @@ function App() {
 
   // Sincroniza carrito con cambios de productos (precio, nombre, talla).
   useEffect(() => {
-    setCart((currentCart) =>
-      currentCart
+    setCart((currentCart) => {
+      const syncedCart = currentCart
         .map((cartItem) => {
           const existingProduct = products.find((product) => product.id === cartItem.id)
 
@@ -784,14 +797,32 @@ function App() {
             ...cartItem,
             name: existingProduct.name,
             price: existingProduct.price,
+            stock: existingProduct.stock,
             category: existingProduct.category,
             size: existingProduct.size,
             image: existingProduct.image,
             selectedSize,
           }
         })
-        .filter(Boolean),
-    )
+        .filter(Boolean)
+
+      const quantityByProductId = {}
+
+      return syncedCart.flatMap((cartItem) => {
+        const currentStock = getProductStock(cartItem)
+        const alreadyCounted = quantityByProductId[cartItem.id] ?? 0
+        const remainingStock = Math.max(0, currentStock - alreadyCounted)
+
+        if (remainingStock <= 0) {
+          return []
+        }
+
+        const quantity = Math.min(cartItem.quantity, remainingStock)
+        quantityByProductId[cartItem.id] = alreadyCounted + quantity
+
+        return [{ ...cartItem, quantity }]
+      })
+    })
   }, [products])
 
   // Mantiene seleccion de tallas valida por producto.
@@ -1083,6 +1114,24 @@ function App() {
 
   // Agrega al carrito (o incrementa cantidad) para producto + talla.
   const handleAddToCart = (productToAdd, chosenSize, quantityToAdd = 1) => {
+    // Calcula cuantas unidades se pueden agregar realmente segun el stock disponible.
+    const requestedQuantity = Number.isInteger(quantityToAdd) && quantityToAdd > 0 ? quantityToAdd : 1
+    const productStock = getProductStock(productToAdd)
+    const quantityInCartForProduct = cart
+      .filter((item) => item.id === productToAdd.id)
+      .reduce((accumulator, item) => accumulator + item.quantity, 0)
+    const remainingStock = Math.max(0, productStock - quantityInCartForProduct)
+
+    if (remainingStock <= 0) {
+      setIsCartNoticeClosing(false)
+      setCartNoticeText(`No hay mas stock de ${productToAdd.name}. Producto agotado.`)
+      setShowCartNotice(true)
+      setCartNoticeId((currentId) => currentId + 1)
+      return
+    }
+
+    const quantityToAddFinal = Math.min(requestedQuantity, remainingStock)
+
     // Si ya existe el mismo producto con la misma talla, suma unidades en vez de duplicar linea.
     setCart((currentCart) => {
       const existingProduct = currentCart.find(
@@ -1092,18 +1141,20 @@ function App() {
       if (existingProduct) {
         return currentCart.map((item) =>
           item.id === productToAdd.id && item.selectedSize === chosenSize
-            ? { ...item, quantity: item.quantity + quantityToAdd }
+            ? { ...item, quantity: item.quantity + quantityToAddFinal }
             : item,
         )
       }
 
-      return [...currentCart, { ...productToAdd, selectedSize: chosenSize, quantity: quantityToAdd }]
+      return [...currentCart, { ...productToAdd, selectedSize: chosenSize, quantity: quantityToAddFinal }]
     })
 
     // Muestra un aviso breve para confirmar al usuario lo que se agrego al carrito.
     setIsCartNoticeClosing(false)
     setCartNoticeText(
-      `Agregado: ${productToAdd.name} talla ${chosenSize} x${quantityToAdd}`,
+      quantityToAddFinal < requestedQuantity
+        ? `Solo quedaban ${quantityToAddFinal} unidades de ${productToAdd.name}. Se agregaron al carrito.`
+        : `Agregado: ${productToAdd.name} talla ${chosenSize} x${quantityToAddFinal}`,
     )
     setShowCartNotice(true)
     setCartNoticeId((currentId) => currentId + 1)
@@ -1133,11 +1184,27 @@ function App() {
       return
     }
 
+    // Evita que el usuario pida mas unidades de las que quedan.
+    const stockInCart = cart
+      .filter((item) => item.id === cartModalProduct.id)
+      .reduce((accumulator, item) => accumulator + item.quantity, 0)
+    const availableStock = Math.max(0, getProductStock(cartModalProduct) - stockInCart)
+
+    if (availableStock <= 0) {
+      setCartModalError('Producto agotado. Ya no hay unidades disponibles.')
+      return
+    }
+
     // Convierte la entrada del input a numero entero para evitar valores invalidos.
     const parsedQuantity = Number.parseInt(cartModalQuantity, 10)
 
     if (!Number.isInteger(parsedQuantity) || parsedQuantity <= 0) {
       setCartModalError('Ingresa una cantidad válida (mínimo 1).')
+      return
+    }
+
+    if (parsedQuantity > availableStock) {
+      setCartModalError(`Solo hay ${availableStock} unidad(es) disponibles para agregar.`)
       return
     }
 
@@ -1157,6 +1224,13 @@ function App() {
 
   // Simula compra inmediata mediante confirmacion.
   const handleBuyNow = (product, chosenSize) => {
+    const productStock = getProductStock(product)
+
+    if (productStock <= 0) {
+      window.alert(`"${product.name}" esta agotado.`)
+      return
+    }
+
     const confirmed = window.confirm(
       `Comprar ahora "${product.name}" talla ${chosenSize} por $${product.price.toFixed(2)} sin pasar por el carrito?`,
     )
@@ -1164,6 +1238,18 @@ function App() {
     if (!confirmed) {
       return
     }
+
+    // Descuenta 1 unidad del stock al confirmar la compra inmediata.
+    setProducts((currentProducts) =>
+      currentProducts.map((currentProduct) =>
+        currentProduct.id === product.id
+          ? {
+              ...currentProduct,
+              stock: Math.max(0, getProductStock(currentProduct) - 1),
+            }
+          : currentProduct,
+      ),
+    )
 
     window.alert(
       `Compra inmediata confirmada para "${product.name}" en talla ${chosenSize}. ¡Gracias por tu compra!`,
@@ -1323,6 +1409,29 @@ function App() {
     window.alert(
       `Compra realizada con exito.\n\nForma de pago: ${paymentMethodLabel}${paymentDetailsSummary}\nEntrega: ${deliverySummary}\nSubtotal: $${totalPrice.toFixed(2)}\nEnvio: $${checkoutShippingFee.toFixed(2)}\nDescuento pago en tienda: -$${checkoutStorePaymentDiscount.toFixed(2)}\nTotal final: $${checkoutFinalTotal.toFixed(2)}${deliveryNotes ? `\nNotas: ${deliveryNotes}` : ''}.`,
     )
+
+    // Resume unidades compradas por producto para descontarlas del inventario.
+    const purchasedByProductId = cart.reduce((accumulator, cartItem) => {
+      accumulator[cartItem.id] = (accumulator[cartItem.id] ?? 0) + cartItem.quantity
+      return accumulator
+    }, {})
+
+    // Al confirmar checkout, descuenta del stock todo lo que habia en el carrito.
+    setProducts((currentProducts) =>
+      currentProducts.map((currentProduct) => {
+        const purchasedQuantity = purchasedByProductId[currentProduct.id] ?? 0
+
+        if (purchasedQuantity <= 0) {
+          return currentProduct
+        }
+
+        return {
+          ...currentProduct,
+          stock: Math.max(0, getProductStock(currentProduct) - purchasedQuantity),
+        }
+      }),
+    )
+
     setCart([])
     setIsClearCartPromptOpen(false)
     setIsCheckoutModalOpen(false)
@@ -1340,6 +1449,20 @@ function App() {
 
   // Aumenta en 1 la cantidad de un item del carrito.
   const handleIncreaseQuantity = (productId, selectedSize) => {
+    const productInCatalog = products.find((product) => product.id === productId)
+    const productStock = getProductStock(productInCatalog)
+    const quantityInCartForProduct = cart
+      .filter((item) => item.id === productId)
+      .reduce((accumulator, item) => accumulator + item.quantity, 0)
+
+    if (quantityInCartForProduct >= productStock) {
+      setIsCartNoticeClosing(false)
+      setCartNoticeText('No puedes aumentar mas unidades: alcanzaste el stock disponible.')
+      setShowCartNotice(true)
+      setCartNoticeId((currentId) => currentId + 1)
+      return
+    }
+
     setCart((currentCart) =>
       currentCart.map((item) =>
         item.id === productId && item.selectedSize === selectedSize
@@ -1563,6 +1686,7 @@ function App() {
       name: '',
       category: '',
       price: '',
+      stock: '',
       size: '',
       image: DEFAULT_PRODUCT_IMAGE,
     })
@@ -1578,6 +1702,7 @@ function App() {
     const rawImage = productForm.image.trim()
     const image = normalizeProductImagePath(productForm.image)
     const price = Number.parseFloat(productForm.price)
+    const stock = Number.parseInt(productForm.stock, 10)
 
     const isSvgPath =
       rawImage &&
@@ -1591,9 +1716,18 @@ function App() {
       return
     }
 
-    if (!name || !category || !size || !image || Number.isNaN(price) || price <= 0) {
+    if (
+      !name ||
+      !category ||
+      !size ||
+      !image ||
+      Number.isNaN(price) ||
+      price <= 0 ||
+      !Number.isInteger(stock) ||
+      stock < 0
+    ) {
       setProductSuccess('')
-      setProductError('Completa todos los campos del producto correctamente.')
+      setProductError('Completa todos los campos del producto correctamente. El stock debe ser 0 o mayor.')
       return
     }
 
@@ -1603,6 +1737,7 @@ function App() {
         name,
         category,
         price,
+        stock,
         size,
         image,
       })
@@ -1624,6 +1759,7 @@ function App() {
       name,
       category,
       price,
+      stock,
       size,
       image,
     })
@@ -1641,6 +1777,7 @@ function App() {
       name: product.name,
       category: product.category,
       price: product.price.toString(),
+      stock: getProductStock(product).toString(),
       size: product.size,
       image: product.image,
     })
@@ -1837,6 +1974,15 @@ function App() {
               onChange={handleProductInputChange}
             />
             <input
+              type="number"
+              name="stock"
+              placeholder="Stock disponible"
+              min="0"
+              step="1"
+              value={productForm.stock}
+              onChange={handleProductInputChange}
+            />
+            <input
               type="text"
               name="size"
               placeholder="Tallas (ej: S - XL)"
@@ -2002,6 +2148,9 @@ function App() {
         {displayedProducts.map((product) => {
           const availableSizes = getProductSizeOptions(product)
           const selectedSize = getSelectedSizeForProduct(product)
+          const productStock = getProductStock(product)
+          const isOutOfStock = productStock <= 0
+          const isLowStock = productStock > 0 && productStock <= LOW_STOCK_THRESHOLD
 
           return (
           <article key={product.id} className="product-card">
@@ -2016,11 +2165,15 @@ function App() {
             <h2>{product.name}</h2>
             <p className="product-meta">Categoría: {product.category}</p>
             <p className="product-meta">Tallas: {product.size}</p>
+            <p className={`product-stock ${isOutOfStock ? 'product-stock--out' : isLowStock ? 'product-stock--low' : 'product-stock--ok'}`}>
+              {isOutOfStock ? 'Agotado' : isLowStock ? `Ultimas unidades (${productStock})` : `Stock: ${productStock}`}
+            </p>
             <label className="size-selector">
               Elegir talla
               <select
                 value={selectedSize}
                 onChange={(event) => handleSizeChange(product.id, event.target.value)}
+                disabled={isOutOfStock}
               >
                 {availableSizes.map((sizeOption) => (
                   <option key={`${product.id}-size-${sizeOption}`} value={sizeOption}>
@@ -2042,22 +2195,24 @@ function App() {
                 <button
                   type="button"
                   className="buy-now-button"
+                  disabled={isOutOfStock}
                   onClick={() => handleBuyNow(product, selectedSize)}
                 >
-                  Comprar ahora
+                  {isOutOfStock ? 'Agotado' : 'Comprar ahora'}
                 </button>
               )}
               {/* Cliente abre modal para elegir unidades; admin agrega directo para gestion rapida. */}
               <button
                 type="button"
                 className="add-button"
+                disabled={isOutOfStock}
                   onClick={() =>
                     isAdmin
                       ? handleAddToCart(product, selectedSize)
                       : handleOpenAddToCartModal(product, selectedSize)
                   }
               >
-                Agregar al carrito
+                {isOutOfStock ? 'Agotado' : 'Agregar al carrito'}
               </button>
               {isAdmin && (
                 <>
@@ -2110,6 +2265,13 @@ function App() {
             <h3>{selectedProduct.name}</h3>
             <p className="product-modal__description">{selectedProduct.description}</p>
             <p className="product-modal__price">Precio: ${selectedProduct.price.toFixed(2)}</p>
+            <p className="product-meta">
+              {getProductStock(selectedProduct) <= 0
+                ? 'Agotado'
+                : getProductStock(selectedProduct) <= LOW_STOCK_THRESHOLD
+                  ? `Ultimas unidades (${getProductStock(selectedProduct)})`
+                  : `Stock: ${getProductStock(selectedProduct)}`}
+            </p>
             <p className="product-modal__sizes-title">Tallas disponibles:</p>
             <ul className="product-modal__sizes">
               {getProductSizeOptions(selectedProduct).map((sizeOption) => (
@@ -2120,9 +2282,10 @@ function App() {
               <button
                 type="button"
                 className="buy-now-button"
+                disabled={getProductStock(selectedProduct) <= 0}
                 onClick={() => handleBuyNow(selectedProduct, getSelectedSizeForProduct(selectedProduct))}
               >
-                Comprar ahora
+                {getProductStock(selectedProduct) <= 0 ? 'Agotado' : 'Comprar ahora'}
               </button>
             )}
           </div>
@@ -2144,6 +2307,9 @@ function App() {
             <h3>Agregar al carrito</h3>
             <p className="cart-quantity-modal__meta">Producto: {cartModalProduct.name}</p>
             <p className="cart-quantity-modal__meta">Talla: {cartModalSize}</p>
+            <p className="cart-quantity-modal__meta">
+              Disponibles: {Math.max(0, getProductStock(cartModalProduct) - cart.filter((item) => item.id === cartModalProduct.id).reduce((accumulator, item) => accumulator + item.quantity, 0))}
+            </p>
 
             <form className="cart-quantity-modal__form" onSubmit={handleConfirmAddToCart}>
               <label htmlFor="cart-quantity-input">Unidades</label>
@@ -2152,6 +2318,7 @@ function App() {
                 type="number"
                 min="1"
                 step="1"
+                max={Math.max(1, getProductStock(cartModalProduct) - cart.filter((item) => item.id === cartModalProduct.id).reduce((accumulator, item) => accumulator + item.quantity, 0))}
                 value={cartModalQuantity}
                 onChange={(event) => {
                   setCartModalQuantity(event.target.value)
