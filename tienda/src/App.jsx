@@ -458,6 +458,7 @@ function App() {
   const [authForm, setAuthForm] = useState({ name: '', email: '', password: '' })
   const [authError, setAuthError] = useState('')
   const [authSuccess, setAuthSuccess] = useState('')
+  const [currentPath, setCurrentPath] = useState(() => window.location.pathname)
 
   // Sesion activa (usuario autenticado).
   const [currentUser, setCurrentUser] = useState(() => {
@@ -597,6 +598,18 @@ function App() {
   })
 
   const isAdmin = currentUser?.role === 'admin'
+  const editPathMatch = currentPath.match(/^\/admin\/editar\/(\d+)$/)
+  const editRouteProductId = editPathMatch ? Number.parseInt(editPathMatch[1], 10) : null
+
+  const navigateToPath = (path) => {
+    if (window.location.pathname === path) {
+      setCurrentPath(path)
+      return
+    }
+
+    window.history.pushState({}, '', path)
+    setCurrentPath(path)
+  }
 
   const categories = useMemo(() => {
     const uniqueCategories = [...new Set(products.map((product) => product.category))]
@@ -724,6 +737,15 @@ function App() {
   useEffect(() => {
     localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart))
   }, [cart])
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentPath(window.location.pathname)
+    }
+
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
 
   useEffect(() => {
     localStorage.setItem(PRODUCTS_STORAGE_KEY, JSON.stringify(products))
@@ -923,6 +945,51 @@ function App() {
     }
   }, [customerRequests, currentUser])
 
+  // Sincroniza la URL de edicion con el formulario del admin.
+  useEffect(() => {
+    if (!currentUser) {
+      return
+    }
+
+    if (!isAdmin && editRouteProductId !== null) {
+      navigateToPath('/')
+      return
+    }
+
+    if (!isAdmin || editRouteProductId === null) {
+      return
+    }
+
+    const productToEdit = products.find((product) => Number(product.id) === Number(editRouteProductId))
+
+    if (!productToEdit) {
+      setProductError('No se encontró el producto para editar.')
+      setProductSuccess('')
+      setEditingProductId(null)
+      navigateToPath('/')
+      return
+    }
+
+    if (Number(editingProductId) === Number(productToEdit.id)) {
+      return
+    }
+
+    setEditingProductId(Number(productToEdit.id))
+    setProductForm({
+      name: productToEdit.name,
+      category: productToEdit.category,
+      price: productToEdit.price.toString(),
+      stock: getProductStock(productToEdit).toString(),
+      size: productToEdit.size,
+      image:
+        typeof productToEdit.image === 'string' && productToEdit.image.trim()
+          ? productToEdit.image
+          : DEFAULT_PRODUCT_IMAGE,
+    })
+    setProductError('')
+    setProductSuccess(`Editando: ${productToEdit.name}`)
+  }, [currentUser, editRouteProductId, editingProductId, isAdmin, products])
+
   // Lee usuarios persistidos y devuelve array seguro.
   const getSavedUsers = () => {
     try {
@@ -1107,6 +1174,7 @@ function App() {
     setShowCartNotice(false)
     setCartNoticeText('')
     setUserView('store')
+    navigateToPath('/')
   }
 
   // Muestra la vista de carrito para usuarios cliente.
@@ -1778,7 +1846,7 @@ function App() {
       return
     }
 
-    if (editingProductId) {
+    if (editingProductId !== null) {
       const updatedProduct = hydrateProduct({
         id: editingProductId,
         name,
@@ -1791,13 +1859,14 @@ function App() {
 
       setProducts((currentProducts) =>
         currentProducts.map((product) =>
-          product.id === editingProductId ? { ...product, ...updatedProduct } : product,
+          Number(product.id) === Number(editingProductId) ? { ...product, ...updatedProduct } : product,
         ),
       )
       setEditingProductId(null)
       resetProductForm()
       setProductError('')
       setProductSuccess('Producto actualizado correctamente.')
+      navigateToPath('/')
       return
     }
 
@@ -1819,17 +1888,19 @@ function App() {
 
   // Carga datos del producto en el formulario para editar.
   const handleStartEditProduct = (product) => {
-    setEditingProductId(product.id)
+    setEditingProductId(Number(product.id))
     setProductForm({
       name: product.name,
       category: product.category,
       price: product.price.toString(),
       stock: getProductStock(product).toString(),
       size: product.size,
-      image: product.image,
+      image: typeof product.image === 'string' && product.image.trim() ? product.image : DEFAULT_PRODUCT_IMAGE,
     })
     setProductError('')
-    setProductSuccess('')
+    setProductSuccess(`Editando: ${product.name}`)
+    navigateToPath(`/admin/editar/${Number(product.id)}`)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   // Cancela la edicion actual y limpia formulario.
@@ -1838,6 +1909,7 @@ function App() {
     resetProductForm()
     setProductError('')
     setProductSuccess('')
+    navigateToPath('/')
   }
 
   // Borra un producto y lo retira tambien del carrito.
@@ -1851,7 +1923,7 @@ function App() {
     setProducts((currentProducts) => currentProducts.filter((product) => product.id !== productId))
     setCart((currentCart) => currentCart.filter((item) => item.id !== productId))
 
-    if (editingProductId === productId) {
+    if (Number(editingProductId) === Number(productId)) {
       handleCancelEditProduct()
     }
   }
@@ -1950,53 +2022,28 @@ function App() {
     )
   }
 
-  return (
-    <main className="store">
-      <header className="store__header">
-        <div className="store__top">
-          <h1>Tienda de Ropa</h1>
-          <div className="store__user-actions">
-            {isAdmin && <span className="admin-badge">Admin</span>}
-            {isAdmin && <span className="status-badge">Pendientes: {pendingRequestsCount}</span>}
-            {!isAdmin && (
-              <button
-                type="button"
-                className={`status-badge status-badge--button ${isUserCartView ? 'status-badge--active' : ''}`}
-                onClick={handleOpenCartView}
-              >
-                Carrito: {totalItems}
+  if (isAdmin && editRouteProductId !== null) {
+    return (
+      <main className="store">
+        <header className="store__header">
+          <div className="store__top">
+            <h1>Editar producto</h1>
+            <div className="store__user-actions">
+              <span className="admin-badge">Admin</span>
+              <button type="button" className="logout-button" onClick={handleLogout}>
+                Cerrar sesión
               </button>
-            )}
-            {!isAdmin && (
-              <button
-                type="button"
-                className={`status-badge status-badge--button ${isUserRequestsView ? 'status-badge--active' : ''}`}
-                onClick={handleOpenRequestsView}
-              >
-                Mensajes: {answeredRequestsCount}
-              </button>
-            )}
-            {!isAdmin && !isUserStoreView && (
-              <button
-                type="button"
-                className="status-badge status-badge--button"
-                onClick={handleOpenStoreView}
-              >
-                Volver a tienda
-              </button>
-            )}
-            <button type="button" className="logout-button" onClick={handleLogout}>
-              Cerrar sesión
-            </button>
+            </div>
           </div>
-        </div>
-        <p>Bienvenida, {currentUser.name}. Explora nuestros productos y filtra por categoría.</p>
-      </header>
+          <p>Estás en la página de edición de producto.</p>
+        </header>
 
-      {isAdmin && (
-        <section className="admin-panel" aria-label="Gestión de productos">
-          <h2>Panel de administrador {editingProductId ? '- Editando producto' : ''}</h2>
-          <form className="admin-form" onSubmit={handleCreateProduct}>
+        <section className="admin-panel admin-edit-page" aria-label="Edición de producto">
+          <button type="button" className="admin-edit-page__back" onClick={handleCancelEditProduct}>
+            Volver al panel
+          </button>
+
+          <form className="admin-form admin-form--editing" onSubmit={handleCreateProduct}>
             <input
               type="text"
               name="name"
@@ -2064,26 +2111,66 @@ function App() {
                 event.currentTarget.src = resolveProductImageSrc(DEFAULT_PRODUCT_IMAGE)
               }}
             />
-            <button type="submit">{editingProductId ? 'Guardar cambios' : 'Añadir producto'}</button>
-            {editingProductId && (
-              <button type="button" className="admin-cancel-button" onClick={handleCancelEditProduct}>
-                Cancelar edición
-              </button>
-            )}
+            <button type="submit">Guardar cambios</button>
+            <button type="button" className="admin-cancel-button" onClick={handleCancelEditProduct}>
+              Cancelar edición
+            </button>
           </form>
+
           {productError && <p className="admin-message admin-message--error">{productError}</p>}
           {productSuccess && <p className="admin-message admin-message--success">{productSuccess}</p>}
+        </section>
+      </main>
+    )
+  }
 
-          <div className="admin-search">
-            <label htmlFor="admin-search-input">Buscar producto por nombre</label>
-            <input
-              id="admin-search-input"
-              type="text"
-              placeholder="Ej: camiseta"
-              value={adminSearch}
-              onChange={(event) => setAdminSearch(event.target.value)}
-            />
+  return (
+    <main className="store">
+      <header className="store__header">
+        <div className="store__top">
+          <h1>Tienda de Ropa</h1>
+          <div className="store__user-actions">
+            {isAdmin && <span className="admin-badge">Admin</span>}
+            {isAdmin && <span className="status-badge">Pendientes: {pendingRequestsCount}</span>}
+            {!isAdmin && (
+              <button
+                type="button"
+                className={`status-badge status-badge--button ${isUserCartView ? 'status-badge--active' : ''}`}
+                onClick={handleOpenCartView}
+              >
+                Carrito: {totalItems}
+              </button>
+            )}
+            {!isAdmin && (
+              <button
+                type="button"
+                className={`status-badge status-badge--button ${isUserRequestsView ? 'status-badge--active' : ''}`}
+                onClick={handleOpenRequestsView}
+              >
+                Mensajes: {answeredRequestsCount}
+              </button>
+            )}
+            {!isAdmin && !isUserStoreView && (
+              <button
+                type="button"
+                className="status-badge status-badge--button"
+                onClick={handleOpenStoreView}
+              >
+                Volver a tienda
+              </button>
+            )}
+            <button type="button" className="logout-button" onClick={handleLogout}>
+              Cerrar sesión
+            </button>
           </div>
+        </div>
+        <p>Bienvenida, {currentUser.name}. Explora nuestros productos y filtra por categoría.</p>
+      </header>
+
+      {isAdmin && (
+        <section className="admin-panel" aria-label="Gestión de productos">
+          <h2>Panel de administrador</h2>
+          <p className="admin-message">Usa los botones Editar y Borrar en cada producto para gestionarlos.</p>
         </section>
       )}
 

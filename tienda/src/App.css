@@ -204,6 +204,24 @@
   padding: 1rem;
 }
 
+.admin-edit-page {
+  margin-top: 1.5rem;
+}
+
+.admin-edit-page__back {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  border-radius: 8px;
+  padding: 0.45rem 0.75rem;
+  cursor: pointer;
+}
+
+.admin-edit-page__back:hover {
+  border-color: #64748b;
+  color: #1e293b;
+}
+
 .admin-panel h2 {
   margin: 0;
   font-size: 1.2rem;
@@ -215,6 +233,16 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 0.6rem;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 0.5rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.admin-form--editing {
+  border-color: #2563eb;
+  background: #eff6ff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.16);
 }
 
 .admin-form input {
