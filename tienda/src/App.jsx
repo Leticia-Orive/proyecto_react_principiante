@@ -24,11 +24,8 @@ const SORT_STORAGE_KEY = 'tienda-sort-order'
 const CATEGORY_STORAGE_KEY = 'tienda-selected-category'
 const REQUESTS_STORAGE_KEY = 'tienda-customer-requests'
 const SEEN_REPLIES_STORAGE_KEY = 'tienda-seen-replies'
-// Reglas de envio configurables del checkout.
-const DELIVERY_FEE = 5
-const NON_PENINSULA_DELIVERY_FEE = 10
-const FREE_SHIPPING_THRESHOLD = 30
-const NON_PENINSULA_FREE_SHIPPING_THRESHOLD = 100
+// Regla comercial del checkout: pago en tienda aplica 10% de descuento.
+const STORE_PAYMENT_DISCOUNT_RATE = 0.1
 
 // Imagen por defecto y catalogo de rutas sugeridas para el selector admin.
 const DEFAULT_PRODUCT_IMAGE = '/images/camiseta-blanca.jpg'
@@ -648,35 +645,21 @@ function App() {
     [cart],
   )
 
-  // Calcula el coste de envio segun tipo de entrega, zona y subtotal.
-  // Peninsula: 5 EUR y gratis al superar 30 EUR.
-  // Fuera de peninsula/internacional: 10 EUR, baja a 5 EUR al superar 30 EUR y gratis al superar 100 EUR.
-  const checkoutShippingFee = useMemo(
-    () => {
-      if (checkoutForm.deliveryType !== 'domicilio') {
-        return 0
-      }
+  // El envio no se cobra, independientemente del tipo de entrega o importe.
+  const checkoutShippingFee = 0
 
-      if (checkoutForm.deliveryZone !== 'peninsula') {
-        if (totalPrice > NON_PENINSULA_FREE_SHIPPING_THRESHOLD) {
-          return 0
-        }
-
-        if (totalPrice > FREE_SHIPPING_THRESHOLD) {
-          return DELIVERY_FEE
-        }
-
-        return NON_PENINSULA_DELIVERY_FEE
-      }
-
-      return totalPrice <= FREE_SHIPPING_THRESHOLD ? DELIVERY_FEE : 0
-    },
-    [checkoutForm.deliveryType, checkoutForm.deliveryZone, totalPrice],
+  // Si el cliente elige pagar en tienda, se descuenta el 10% del subtotal.
+  const checkoutStorePaymentDiscount = useMemo(
+    () =>
+      checkoutForm.paymentMethod === 'pago-tienda'
+        ? totalPrice * STORE_PAYMENT_DISCOUNT_RATE
+        : 0,
+    [checkoutForm.paymentMethod, totalPrice],
   )
 
   const checkoutFinalTotal = useMemo(
-    () => totalPrice + checkoutShippingFee,
-    [totalPrice, checkoutShippingFee],
+    () => Math.max(0, totalPrice + checkoutShippingFee - checkoutStorePaymentDiscount),
+    [totalPrice, checkoutShippingFee, checkoutStorePaymentDiscount],
   )
 
   const passwordChecks = useMemo(() => {
@@ -1303,8 +1286,11 @@ function App() {
         ? 'Recogida en tienda (sin gasto de envio)'
         : `Entrega a domicilio (${deliveryZoneLabel}): ${deliveryAddress}`
 
+    const paymentMethodLabel =
+      paymentMethod === 'pago-tienda' ? 'Pago en tienda (10% de descuento)' : paymentMethod
+
     window.alert(
-      `Compra realizada con exito.\n\nForma de pago: ${paymentMethod}\nEntrega: ${deliverySummary}\nSubtotal: $${totalPrice.toFixed(2)}\nEnvio: $${checkoutShippingFee.toFixed(2)}\nTotal final: $${checkoutFinalTotal.toFixed(2)}${deliveryNotes ? `\nNotas: ${deliveryNotes}` : ''}.`,
+      `Compra realizada con exito.\n\nForma de pago: ${paymentMethodLabel}\nEntrega: ${deliverySummary}\nSubtotal: $${totalPrice.toFixed(2)}\nEnvio: $${checkoutShippingFee.toFixed(2)}\nDescuento pago en tienda: -$${checkoutStorePaymentDiscount.toFixed(2)}\nTotal final: $${checkoutFinalTotal.toFixed(2)}${deliveryNotes ? `\nNotas: ${deliveryNotes}` : ''}.`,
     )
     setCart([])
     setIsClearCartPromptOpen(false)
@@ -2173,23 +2159,15 @@ function App() {
             <p className="checkout-modal__summary">Productos: {totalItems}</p>
             <p className="checkout-modal__summary">Subtotal: ${totalPrice.toFixed(2)}</p>
             <p className="checkout-modal__summary">Envio: ${checkoutShippingFee.toFixed(2)}</p>
+            <p className="checkout-modal__summary">
+              Descuento pago en tienda: -${checkoutStorePaymentDiscount.toFixed(2)}
+            </p>
             <p className="checkout-modal__summary">Total final: ${checkoutFinalTotal.toFixed(2)}</p>
-            {/* Mensaje dinamico para explicar por que el envio sale gratis, rebajado o normal. */}
-            {checkoutForm.deliveryType === 'domicilio' && checkoutForm.deliveryZone === 'peninsula' && (
-              <p className="checkout-modal__summary">
-                {totalPrice > FREE_SHIPPING_THRESHOLD
-                  ? 'Envio gratis aplicado por compra superior a $30.00.'
-                  : 'Envio gratis a domicilio en compras superiores a $30.00.'}
-              </p>
+            {checkoutForm.deliveryType === 'domicilio' && (
+              <p className="checkout-modal__summary">Envio a domicilio gratis para cualquier importe.</p>
             )}
-            {checkoutForm.deliveryType === 'domicilio' && checkoutForm.deliveryZone !== 'peninsula' && (
-              <p className="checkout-modal__summary">
-                {totalPrice > NON_PENINSULA_FREE_SHIPPING_THRESHOLD
-                  ? 'Envio gratis aplicado por compra superior a $100.00 fuera de peninsula u otro pais.'
-                  : totalPrice > FREE_SHIPPING_THRESHOLD
-                    ? 'Envio rebajado a $5.00 por compra superior a $30.00 fuera de peninsula u otro pais.'
-                    : 'Envio fijo de $10.00 para fuera de la peninsula u otro pais.'}
-              </p>
+            {checkoutStorePaymentDiscount > 0 && (
+              <p className="checkout-modal__summary">Se aplica un 10% de descuento por pagar en tienda.</p>
             )}
 
             <form className="checkout-modal__form" onSubmit={handleConfirmCheckout}>
@@ -2215,6 +2193,7 @@ function App() {
                 <option value="bizum">Bizum</option>
                 <option value="paypal">PayPal</option>
                 <option value="contra-reembolso">Contra reembolso</option>
+                <option value="pago-tienda">Pago en tienda (10% descuento)</option>
               </select>
 
               {checkoutForm.deliveryType === 'domicilio' && (
