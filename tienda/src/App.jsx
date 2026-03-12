@@ -2022,6 +2022,7 @@ function App() {
     )
   }
 
+  // Vista dedicada de edicion: se activa cuando la URL coincide con /admin/editar/:id.
   if (isAdmin && editRouteProductId !== null) {
     return (
       <main className="store">
@@ -2167,6 +2168,7 @@ function App() {
         <p>Bienvenida, {currentUser.name}. Explora nuestros productos y filtra por categoría.</p>
       </header>
 
+      {/* Portada admin simplificada: ya no muestra formulario inline, solo indicaciones. */}
       {isAdmin && (
         <section className="admin-panel" aria-label="Gestión de productos">
           <h2>Panel de administrador</h2>
