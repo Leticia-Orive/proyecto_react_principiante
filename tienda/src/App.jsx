@@ -663,6 +663,8 @@ function App() {
   const isUserStoreView = !isAdmin && userView === 'store'
   const isUserCartView = !isAdmin && userView === 'cart'
   const isUserRequestsView = !isAdmin && userView === 'requests'
+  const isAdminStoreView = isAdmin && userView === 'store'
+  const isAdminCartView = isAdmin && userView === 'cart'
 
   const totalItems = useMemo(
     () => cart.reduce((accumulator, item) => accumulator + item.quantity, 0),
@@ -2133,6 +2135,15 @@ function App() {
           <div className="store__user-actions">
             {isAdmin && <span className="admin-badge">Admin</span>}
             {isAdmin && <span className="status-badge">Pendientes: {pendingRequestsCount}</span>}
+            {isAdmin && (
+              <button
+                type="button"
+                className={`status-badge status-badge--button ${isAdminCartView ? 'status-badge--active' : ''}`}
+                onClick={handleOpenCartView}
+              >
+                Carrito: {totalItems}
+              </button>
+            )}
             {!isAdmin && (
               <button
                 type="button"
@@ -2149,6 +2160,15 @@ function App() {
                 onClick={handleOpenRequestsView}
               >
                 Mensajes: {answeredRequestsCount}
+              </button>
+            )}
+            {isAdmin && !isAdminStoreView && (
+              <button
+                type="button"
+                className="status-badge status-badge--button"
+                onClick={handleOpenStoreView}
+              >
+                Volver a tienda
               </button>
             )}
             {!isAdmin && !isUserStoreView && (
@@ -2176,7 +2196,7 @@ function App() {
         </section>
       )}
 
-      {(isAdmin || isUserStoreView) && (
+      {(isAdminStoreView || isUserStoreView) && (
         <section className="categories" aria-label="Categorías de producto">
           {categories.map((category) => (
             <button
@@ -2191,7 +2211,7 @@ function App() {
         </section>
       )}
 
-      {(isAdmin || isUserStoreView) && (
+      {(isAdminStoreView || isUserStoreView) && (
         <section className="sort" aria-label="Orden de productos">
           <label htmlFor="sort-select">Ordenar por precio</label>
           <select
@@ -2209,7 +2229,7 @@ function App() {
         </section>
       )}
 
-      {(isAdmin || isUserRequestsView) && (
+      {(isAdminStoreView || isUserRequestsView) && (
         <RequestsPanel
           isAdmin={isAdmin}
           requestForm={requestForm}
@@ -2265,7 +2285,7 @@ function App() {
         </div>
       )}
 
-      {showCartNotice && !isAdmin && (
+      {showCartNotice && (
         <div className={`cart-notice ${isCartNoticeClosing ? 'cart-notice--closing' : ''}`} role="status" aria-live="polite">
           <span>{cartNoticeText}</span>
           <button
@@ -2279,7 +2299,7 @@ function App() {
         </div>
       )}
 
-      {(isAdmin || isUserStoreView) && (
+      {(isAdminStoreView || isUserStoreView) && (
       <section className="products" aria-label="Listado de productos">
         {displayedProducts.map((product) => {
           const availableSizes = getProductSizeOptions(product)
@@ -2337,16 +2357,12 @@ function App() {
                   {isOutOfStock ? 'Agotado' : 'Comprar ahora'}
                 </button>
               )}
-              {/* Cliente abre modal para elegir unidades; admin agrega directo para gestion rapida. */}
+              {/* Cliente y admin usan el mismo modal para elegir unidades antes de agregar. */}
               <button
                 type="button"
                 className="add-button"
                 disabled={isOutOfStock}
-                  onClick={() =>
-                    isAdmin
-                      ? handleAddToCart(product, selectedSize)
-                      : handleOpenAddToCartModal(product, selectedSize)
-                  }
+                onClick={() => handleOpenAddToCartModal(product, selectedSize)}
               >
                 {isOutOfStock ? 'Agotado' : 'Agregar al carrito'}
               </button>
@@ -2429,7 +2445,7 @@ function App() {
       )}
 
       {/* Modal de cantidad: evita agregar siempre 1 unidad y mejora el flujo de compra. */}
-      {cartModalProduct && !isAdmin && (
+      {cartModalProduct && (
         <div className="product-modal" role="dialog" aria-modal="true" aria-label="Cantidad para agregar al carrito">
           <div className="product-modal__content cart-quantity-modal">
             <button
@@ -2479,7 +2495,7 @@ function App() {
         </div>
       )}
 
-      {isCheckoutModalOpen && !isAdmin && (
+      {isCheckoutModalOpen && (
         <div className="product-modal" role="dialog" aria-modal="true" aria-label="Formulario de pago y entrega">
           <div className="product-modal__content checkout-modal">
             <button
@@ -2641,7 +2657,7 @@ function App() {
         </div>
       )}
 
-      {(isAdmin || isUserCartView) && (
+      {(isAdminCartView || isUserCartView) && (
         <CartSection
           cart={cart}
           totalItems={totalItems}
