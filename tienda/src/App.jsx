@@ -535,6 +535,8 @@ function App() {
     deliveryType: 'domicilio',
     deliveryZone: 'peninsula',
     paymentMethod: 'tarjeta',
+    paymentAccountNumber: '',
+    paymentPhone: '',
     deliveryAddress: '',
     deliveryNotes: '',
   })
@@ -1031,6 +1033,8 @@ function App() {
       deliveryType: 'domicilio',
       deliveryZone: 'peninsula',
       paymentMethod: 'tarjeta',
+      paymentAccountNumber: '',
+      paymentPhone: '',
       deliveryAddress: '',
       deliveryNotes: '',
     })
@@ -1247,9 +1251,32 @@ function App() {
     const deliveryAddress = checkoutForm.deliveryAddress.trim()
     const deliveryNotes = checkoutForm.deliveryNotes.trim()
     const paymentMethod = checkoutForm.paymentMethod.trim()
+    const paymentAccountNumber = checkoutForm.paymentAccountNumber.replace(/\s+/g, '').trim()
+    const paymentPhone = checkoutForm.paymentPhone.replace(/\s+/g, '').trim()
+    const requiresPaymentDetails = paymentMethod === 'bizum' || paymentMethod === 'tarjeta'
 
     if (!paymentMethod) {
       setCheckoutError('Selecciona una forma de pago.')
+      return
+    }
+
+    if (requiresPaymentDetails && !paymentAccountNumber) {
+      setCheckoutError('Indica el numero de cuenta o tarjeta para completar el pago.')
+      return
+    }
+
+    if (requiresPaymentDetails && !/^\d{8,24}$/.test(paymentAccountNumber)) {
+      setCheckoutError('El numero de cuenta o tarjeta debe tener solo digitos (8 a 24).')
+      return
+    }
+
+    if (requiresPaymentDetails && !paymentPhone) {
+      setCheckoutError('Indica un telefono para el pago.')
+      return
+    }
+
+    if (requiresPaymentDetails && !/^\+?\d{9,15}$/.test(paymentPhone)) {
+      setCheckoutError('Introduce un telefono valido (9 a 15 digitos, opcional + al inicio).')
       return
     }
 
@@ -1289,8 +1316,12 @@ function App() {
     const paymentMethodLabel =
       paymentMethod === 'pago-tienda' ? 'Pago en tienda (10% de descuento)' : paymentMethod
 
+    const paymentDetailsSummary = requiresPaymentDetails
+      ? `\nReferencia de pago: ${paymentAccountNumber}\nTelefono de pago: ${paymentPhone}`
+      : ''
+
     window.alert(
-      `Compra realizada con exito.\n\nForma de pago: ${paymentMethodLabel}\nEntrega: ${deliverySummary}\nSubtotal: $${totalPrice.toFixed(2)}\nEnvio: $${checkoutShippingFee.toFixed(2)}\nDescuento pago en tienda: -$${checkoutStorePaymentDiscount.toFixed(2)}\nTotal final: $${checkoutFinalTotal.toFixed(2)}${deliveryNotes ? `\nNotas: ${deliveryNotes}` : ''}.`,
+      `Compra realizada con exito.\n\nForma de pago: ${paymentMethodLabel}${paymentDetailsSummary}\nEntrega: ${deliverySummary}\nSubtotal: $${totalPrice.toFixed(2)}\nEnvio: $${checkoutShippingFee.toFixed(2)}\nDescuento pago en tienda: -$${checkoutStorePaymentDiscount.toFixed(2)}\nTotal final: $${checkoutFinalTotal.toFixed(2)}${deliveryNotes ? `\nNotas: ${deliveryNotes}` : ''}.`,
     )
     setCart([])
     setIsClearCartPromptOpen(false)
@@ -1300,6 +1331,8 @@ function App() {
       deliveryType: 'domicilio',
       deliveryZone: 'peninsula',
       paymentMethod: 'tarjeta',
+      paymentAccountNumber: '',
+      paymentPhone: '',
       deliveryAddress: '',
       deliveryNotes: '',
     })
@@ -2195,6 +2228,32 @@ function App() {
                 <option value="contra-reembolso">Contra reembolso</option>
                 <option value="pago-tienda">Pago en tienda (10% descuento)</option>
               </select>
+
+              {(checkoutForm.paymentMethod === 'bizum' || checkoutForm.paymentMethod === 'tarjeta') && (
+                <>
+                  <label htmlFor="checkout-payment-account-number">Numero de cuenta o tarjeta</label>
+                  <input
+                    id="checkout-payment-account-number"
+                    name="paymentAccountNumber"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="Ej: 123456789012"
+                    value={checkoutForm.paymentAccountNumber}
+                    onChange={handleCheckoutInputChange}
+                  />
+
+                  <label htmlFor="checkout-payment-phone">Telefono</label>
+                  <input
+                    id="checkout-payment-phone"
+                    name="paymentPhone"
+                    type="tel"
+                    inputMode="tel"
+                    placeholder="Ej: +34600111222"
+                    value={checkoutForm.paymentPhone}
+                    onChange={handleCheckoutInputChange}
+                  />
+                </>
+              )}
 
               {checkoutForm.deliveryType === 'domicilio' && (
                 <>
