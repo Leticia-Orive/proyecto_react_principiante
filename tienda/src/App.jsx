@@ -544,6 +544,7 @@ function App() {
   const [cartModalError, setCartModalError] = useState('')
   // Estado del checkout: controla modal, formulario y errores de validacion.
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false)
+  const [directCheckout, setDirectCheckout] = useState(null)
   const [checkoutForm, setCheckoutForm] = useState({
     deliveryType: 'domicilio',
     deliveryZone: 'peninsula',
@@ -660,6 +661,37 @@ function App() {
     [cart],
   )
 
+  // Si se compra desde "Comprar ahora", el checkout se basa en un unico producto temporal.
+  const checkoutItems = useMemo(() => {
+    if (!directCheckout) {
+      return cart
+    }
+
+    const productForDirectCheckout = products.find((product) => product.id === directCheckout.productId)
+
+    if (!productForDirectCheckout) {
+      return []
+    }
+
+    return [
+      {
+        ...productForDirectCheckout,
+        selectedSize: directCheckout.selectedSize,
+        quantity: directCheckout.quantity,
+      },
+    ]
+  }, [cart, directCheckout, products])
+
+  const checkoutTotalItems = useMemo(
+    () => checkoutItems.reduce((accumulator, item) => accumulator + item.quantity, 0),
+    [checkoutItems],
+  )
+
+  const checkoutSubtotal = useMemo(
+    () => checkoutItems.reduce((accumulator, item) => accumulator + item.price * item.quantity, 0),
+    [checkoutItems],
+  )
+
   // El envio no se cobra, independientemente del tipo de entrega o importe.
   const checkoutShippingFee = 0
 
@@ -667,14 +699,14 @@ function App() {
   const checkoutStorePaymentDiscount = useMemo(
     () =>
       checkoutForm.paymentMethod === 'pago-tienda'
-        ? totalPrice * STORE_PAYMENT_DISCOUNT_RATE
+        ? checkoutSubtotal * STORE_PAYMENT_DISCOUNT_RATE
         : 0,
-    [checkoutForm.paymentMethod, totalPrice],
+    [checkoutForm.paymentMethod, checkoutSubtotal],
   )
 
   const checkoutFinalTotal = useMemo(
-    () => Math.max(0, totalPrice + checkoutShippingFee - checkoutStorePaymentDiscount),
-    [totalPrice, checkoutShippingFee, checkoutStorePaymentDiscount],
+    () => Math.max(0, checkoutSubtotal + checkoutShippingFee - checkoutStorePaymentDiscount),
+    [checkoutSubtotal, checkoutShippingFee, checkoutStorePaymentDiscount],
   )
 
   const passwordChecks = useMemo(() => {
@@ -1059,6 +1091,7 @@ function App() {
     setCurrentUser(null)
     setIsClearCartPromptOpen(false)
     setIsCheckoutModalOpen(false)
+    setDirectCheckout(null)
     setCheckoutError('')
     setCheckoutForm({
       deliveryType: 'domicilio',
@@ -1222,7 +1255,7 @@ function App() {
     setSelectedProduct(null)
   }
 
-  // Simula compra inmediata mediante confirmacion.
+  // Inicia checkout directo desde un producto (Comprar ahora).
   const handleBuyNow = (product, chosenSize) => {
     const productStock = getProductStock(product)
 
@@ -1231,29 +1264,13 @@ function App() {
       return
     }
 
-    const confirmed = window.confirm(
-      `Comprar ahora "${product.name}" talla ${chosenSize} por $${product.price.toFixed(2)} sin pasar por el carrito?`,
-    )
-
-    if (!confirmed) {
-      return
-    }
-
-    // Descuenta 1 unidad del stock al confirmar la compra inmediata.
-    setProducts((currentProducts) =>
-      currentProducts.map((currentProduct) =>
-        currentProduct.id === product.id
-          ? {
-              ...currentProduct,
-              stock: Math.max(0, getProductStock(currentProduct) - 1),
-            }
-          : currentProduct,
-      ),
-    )
-
-    window.alert(
-      `Compra inmediata confirmada para "${product.name}" en talla ${chosenSize}. ¡Gracias por tu compra!`,
-    )
+    setDirectCheckout({
+      productId: product.id,
+      selectedSize: chosenSize,
+      quantity: 1,
+    })
+    setCheckoutError('')
+    setIsCheckoutModalOpen(true)
   }
 
   // Elimina una cantidad concreta de un item del carrito.
@@ -1303,6 +1320,7 @@ function App() {
       return
     }
 
+    setDirectCheckout(null)
     setCheckoutError('')
     setIsCheckoutModalOpen(true)
   }
@@ -1310,6 +1328,7 @@ function App() {
   // Cierra el modal de compra del carrito.
   const handleCloseCheckoutModal = () => {
     setIsCheckoutModalOpen(false)
+    setDirectCheckout(null)
     setCheckoutError('')
   }
 
@@ -1340,6 +1359,31 @@ function App() {
     const paymentAccountNumber = checkoutForm.paymentAccountNumber.replace(/\s+/g, '').trim()
     const paymentPhone = checkoutForm.paymentPhone.replace(/\s+/g, '').trim()
     const requiresPaymentDetails = paymentMethod === 'bizum' || paymentMethod === 'tarjeta'
+
+    if (checkoutItems.length === 0) {
+      setCheckoutError('No hay productos para procesar en esta compra.')
+      return
+    }
+
+    if (directCheckout) {
+      const productForDirectCheckout = products.find((product) => product.id === directCheckout.productId)
+      const availableStock = getProductStock(productForDirectCheckout)
+
+      if (!productForDirectCheckout || availableStock <= 0) {
+        setCheckoutError('El producto ya no tiene stock disponible.')
+        return
+      }
+
+      if (!Number.isInteger(directCheckout.quantity) || directCheckout.quantity <= 0) {
+        setCheckoutError('Selecciona una cantidad valida para comprar ahora.')
+        return
+      }
+
+      if (directCheckout.quantity > availableStock) {
+        setCheckoutError(`Solo hay ${availableStock} unidad(es) disponibles para esta compra.`)
+        return
+      }
+    }
 
     if (!paymentMethod) {
       setCheckoutError('Selecciona una forma de pago.')
@@ -1407,12 +1451,12 @@ function App() {
       : ''
 
     window.alert(
-      `Compra realizada con exito.\n\nForma de pago: ${paymentMethodLabel}${paymentDetailsSummary}\nEntrega: ${deliverySummary}\nSubtotal: $${totalPrice.toFixed(2)}\nEnvio: $${checkoutShippingFee.toFixed(2)}\nDescuento pago en tienda: -$${checkoutStorePaymentDiscount.toFixed(2)}\nTotal final: $${checkoutFinalTotal.toFixed(2)}${deliveryNotes ? `\nNotas: ${deliveryNotes}` : ''}.`,
+      `Compra realizada con exito.\n\nForma de pago: ${paymentMethodLabel}${paymentDetailsSummary}\nEntrega: ${deliverySummary}\nSubtotal: $${checkoutSubtotal.toFixed(2)}\nEnvio: $${checkoutShippingFee.toFixed(2)}\nDescuento pago en tienda: -$${checkoutStorePaymentDiscount.toFixed(2)}\nTotal final: $${checkoutFinalTotal.toFixed(2)}${deliveryNotes ? `\nNotas: ${deliveryNotes}` : ''}.`,
     )
 
     // Resume unidades compradas por producto para descontarlas del inventario.
-    const purchasedByProductId = cart.reduce((accumulator, cartItem) => {
-      accumulator[cartItem.id] = (accumulator[cartItem.id] ?? 0) + cartItem.quantity
+    const purchasedByProductId = checkoutItems.reduce((accumulator, checkoutItem) => {
+      accumulator[checkoutItem.id] = (accumulator[checkoutItem.id] ?? 0) + checkoutItem.quantity
       return accumulator
     }, {})
 
@@ -1432,7 +1476,10 @@ function App() {
       }),
     )
 
-    setCart([])
+    if (!directCheckout) {
+      setCart([])
+    }
+    setDirectCheckout(null)
     setIsClearCartPromptOpen(false)
     setIsCheckoutModalOpen(false)
     setCheckoutError('')
@@ -2356,8 +2403,8 @@ function App() {
             </button>
 
             <h3>Finalizar compra</h3>
-            <p className="checkout-modal__summary">Productos: {totalItems}</p>
-            <p className="checkout-modal__summary">Subtotal: ${totalPrice.toFixed(2)}</p>
+            <p className="checkout-modal__summary">Productos: {checkoutTotalItems}</p>
+            <p className="checkout-modal__summary">Subtotal: ${checkoutSubtotal.toFixed(2)}</p>
             <p className="checkout-modal__summary">Envio: ${checkoutShippingFee.toFixed(2)}</p>
             <p className="checkout-modal__summary">
               Descuento pago en tienda: -${checkoutStorePaymentDiscount.toFixed(2)}
@@ -2371,6 +2418,38 @@ function App() {
             )}
 
             <form className="checkout-modal__form" onSubmit={handleConfirmCheckout}>
+              {directCheckout && (
+                <>
+                  <label htmlFor="checkout-direct-quantity">Unidades (Comprar ahora)</label>
+                  <input
+                    id="checkout-direct-quantity"
+                    type="number"
+                    min="1"
+                    step="1"
+                    max={Math.max(1, getProductStock(products.find((product) => product.id === directCheckout.productId)))}
+                    value={directCheckout.quantity}
+                    onChange={(event) => {
+                      const parsedQuantity = Number.parseInt(event.target.value, 10)
+
+                      setDirectCheckout((currentDirectCheckout) => {
+                        if (!currentDirectCheckout) {
+                          return currentDirectCheckout
+                        }
+
+                        return {
+                          ...currentDirectCheckout,
+                          quantity: Number.isInteger(parsedQuantity) ? parsedQuantity : 1,
+                        }
+                      })
+
+                      if (checkoutError) {
+                        setCheckoutError('')
+                      }
+                    }}
+                  />
+                </>
+              )}
+
               <label htmlFor="checkout-delivery-type">Tipo de entrega</label>
               <select
                 id="checkout-delivery-type"

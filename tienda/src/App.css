@@ -1029,6 +1029,7 @@
 }
 
 .checkout-modal__form select,
+.checkout-modal__form input,
 .checkout-modal__form textarea {
   border: 1px solid #cbd5e1;
   border-radius: 8px;
