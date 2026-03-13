@@ -24,6 +24,7 @@ const SORT_STORAGE_KEY = 'tienda-sort-order'
 const CATEGORY_STORAGE_KEY = 'tienda-selected-category'
 const REQUESTS_STORAGE_KEY = 'tienda-customer-requests'
 const SEEN_REPLIES_STORAGE_KEY = 'tienda-seen-replies'
+const UPCOMING_STORAGE_KEY = 'tienda-upcoming-products'
 // Regla comercial del checkout: pago en tienda aplica 10% de descuento.
 const STORE_PAYMENT_DISCOUNT_RATE = 0.1
 // Stock por defecto para productos antiguos que no tenian este campo guardado.
@@ -176,6 +177,33 @@ const DEFAULT_PRODUCTS = DEFAULT_PRODUCT_ROWS.map(
     image,
   }),
 )
+
+const DEFAULT_UPCOMING_PRODUCTS = [
+  {
+    id: 'upcoming-1',
+    name: 'Blazer lino arena',
+    category: 'Chaquetas',
+    launchWindow: 'Llega en abril',
+    note: 'Corte relajado y tejido fresco para entretiempo.',
+    image: '/images/chaqueta-denim.avif',
+  },
+  {
+    id: 'upcoming-2',
+    name: 'Jeans wide fit azul claro',
+    category: 'Pantalones',
+    launchWindow: 'Llega en mayo',
+    note: 'Tiro medio y pierna amplia para un look urbano.',
+    image: '/images/jeans-azul.avif',
+  },
+  {
+    id: 'upcoming-3',
+    name: 'Camiseta print edición verano',
+    category: 'Camisetas',
+    launchWindow: 'Llega en junio',
+    note: 'Algodón ligero con estampado exclusivo de temporada.',
+    image: '/images/camiseta-pato.avif',
+  },
+]
 
 // Normaliza texto para comparar sin tildes ni mayusculas/minusculas.
 const normalizeText = (value) =>
@@ -509,6 +537,42 @@ function App() {
   const [productSuccess, setProductSuccess] = useState('')
   const [editingProductId, setEditingProductId] = useState(null)
   const [adminSearch, setAdminSearch] = useState('')
+  const [upcomingProducts, setUpcomingProducts] = useState(() => {
+    try {
+      const savedUpcomingProducts = localStorage.getItem(UPCOMING_STORAGE_KEY)
+
+      if (!savedUpcomingProducts) {
+        return DEFAULT_UPCOMING_PRODUCTS
+      }
+
+      const parsedUpcomingProducts = JSON.parse(savedUpcomingProducts)
+
+      if (!Array.isArray(parsedUpcomingProducts) || parsedUpcomingProducts.length === 0) {
+        return DEFAULT_UPCOMING_PRODUCTS
+      }
+
+      return parsedUpcomingProducts.map((upcomingItem, index) => ({
+        id: upcomingItem.id ?? `upcoming-${index + 1}`,
+        name: upcomingItem.name?.trim() || 'Prenda próxima',
+        category: upcomingItem.category?.trim() || 'Novedades',
+        launchWindow: upcomingItem.launchWindow?.trim() || 'Próximamente',
+        note: upcomingItem.note?.trim() || 'Nueva prenda en camino.',
+        image: normalizeProductImagePath(upcomingItem.image),
+      }))
+    } catch {
+      return DEFAULT_UPCOMING_PRODUCTS
+    }
+  })
+  const [upcomingForm, setUpcomingForm] = useState({
+    name: '',
+    category: '',
+    launchWindow: '',
+    note: '',
+    image: DEFAULT_PRODUCT_IMAGE,
+  })
+  const [editingUpcomingId, setEditingUpcomingId] = useState(null)
+  const [upcomingError, setUpcomingError] = useState('')
+  const [upcomingSuccess, setUpcomingSuccess] = useState('')
 
   // Solicitudes de clientes y formulario asociado.
   const [customerRequests, setCustomerRequests] = useState(() => {
@@ -752,6 +816,10 @@ function App() {
   useEffect(() => {
     localStorage.setItem(PRODUCTS_STORAGE_KEY, JSON.stringify(products))
   }, [products])
+
+  useEffect(() => {
+    localStorage.setItem(UPCOMING_STORAGE_KEY, JSON.stringify(upcomingProducts))
+  }, [upcomingProducts])
 
   useEffect(() => {
     setProducts((currentProducts) => ensureKeyCatalogProducts(currentProducts))
@@ -1930,6 +1998,122 @@ function App() {
     }
   }
 
+  const handleUpcomingInputChange = (event) => {
+    const { name, value } = event.target
+
+    setUpcomingForm((currentForm) => ({
+      ...currentForm,
+      [name]: value,
+    }))
+
+    if (upcomingError) {
+      setUpcomingError('')
+    }
+
+    if (upcomingSuccess) {
+      setUpcomingSuccess('')
+    }
+  }
+
+  const resetUpcomingForm = () => {
+    setUpcomingForm({
+      name: '',
+      category: '',
+      launchWindow: '',
+      note: '',
+      image: DEFAULT_PRODUCT_IMAGE,
+    })
+  }
+
+  const handleCreateUpcomingProduct = (event) => {
+    event.preventDefault()
+
+    const name = upcomingForm.name.trim()
+    const category = upcomingForm.category.trim()
+    const launchWindow = upcomingForm.launchWindow.trim()
+    const note = upcomingForm.note.trim()
+    const image = normalizeProductImagePath(upcomingForm.image)
+
+    if (!name || !category || !launchWindow || !note || !image) {
+      setUpcomingSuccess('')
+      setUpcomingError('Completa todos los campos de Próximamente.')
+      return
+    }
+
+    if (editingUpcomingId) {
+      setUpcomingProducts((currentUpcomingProducts) =>
+        currentUpcomingProducts.map((upcomingItem) =>
+          upcomingItem.id === editingUpcomingId
+            ? {
+                ...upcomingItem,
+                name,
+                category,
+                launchWindow,
+                note,
+                image,
+              }
+            : upcomingItem,
+        ),
+      )
+      setEditingUpcomingId(null)
+      setUpcomingError('')
+      setUpcomingSuccess('Prenda próxima actualizada correctamente.')
+      resetUpcomingForm()
+      return
+    }
+
+    const newUpcomingProduct = {
+      id: `upcoming-${Date.now()}`,
+      name,
+      category,
+      launchWindow,
+      note,
+      image,
+    }
+
+    setUpcomingProducts((currentUpcomingProducts) => [newUpcomingProduct, ...currentUpcomingProducts])
+    resetUpcomingForm()
+    setUpcomingError('')
+    setUpcomingSuccess('Prenda próxima añadida correctamente.')
+  }
+
+  const handleStartEditUpcomingProduct = (upcomingItem) => {
+    setEditingUpcomingId(upcomingItem.id)
+    setUpcomingForm({
+      name: upcomingItem.name,
+      category: upcomingItem.category,
+      launchWindow: upcomingItem.launchWindow,
+      note: upcomingItem.note,
+      image: upcomingItem.image,
+    })
+    setUpcomingError('')
+    setUpcomingSuccess(`Editando: ${upcomingItem.name}`)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleCancelEditUpcomingProduct = () => {
+    setEditingUpcomingId(null)
+    resetUpcomingForm()
+    setUpcomingError('')
+    setUpcomingSuccess('')
+  }
+
+  const handleDeleteUpcomingProduct = (upcomingId, upcomingName) => {
+    const confirmed = window.confirm(`¿Seguro que quieres borrar "${upcomingName}" de Próximamente?`)
+
+    if (!confirmed) {
+      return
+    }
+
+    setUpcomingProducts((currentUpcomingProducts) =>
+      currentUpcomingProducts.filter((upcomingItem) => upcomingItem.id !== upcomingId),
+    )
+
+    if (editingUpcomingId === upcomingId) {
+      handleCancelEditUpcomingProduct()
+    }
+  }
+
   if (!currentUser) {
     return (
       <main className="auth-page">
@@ -2193,6 +2377,89 @@ function App() {
         <section className="admin-panel" aria-label="Gestión de productos">
           <h2>Panel de administrador</h2>
           <p className="admin-message">Usa los botones Editar y Borrar en cada producto para gestionarlos.</p>
+
+          <form className="upcoming-admin-form" onSubmit={handleCreateUpcomingProduct}>
+            <h3>Gestionar Próximamente</h3>
+            <input
+              type="text"
+              name="name"
+              placeholder="Nombre de la prenda"
+              value={upcomingForm.name}
+              onChange={handleUpcomingInputChange}
+            />
+            <input
+              type="text"
+              name="category"
+              placeholder="Categoría"
+              value={upcomingForm.category}
+              onChange={handleUpcomingInputChange}
+            />
+            <input
+              type="text"
+              name="launchWindow"
+              placeholder="Ej: Llega en julio"
+              value={upcomingForm.launchWindow}
+              onChange={handleUpcomingInputChange}
+            />
+            <input
+              type="text"
+              name="image"
+              placeholder="Ruta de imagen (opcional)"
+              value={upcomingForm.image}
+              onChange={handleUpcomingInputChange}
+            />
+            <textarea
+              name="note"
+              rows="2"
+              placeholder="Descripción breve"
+              value={upcomingForm.note}
+              onChange={handleUpcomingInputChange}
+            />
+            <button type="submit">
+              {editingUpcomingId ? 'Guardar cambios de Próximamente' : 'Añadir a Próximamente'}
+            </button>
+            {editingUpcomingId && (
+              <button
+                type="button"
+                className="upcoming-admin-cancel"
+                onClick={handleCancelEditUpcomingProduct}
+              >
+                Cancelar edición
+              </button>
+            )}
+          </form>
+
+          {upcomingError && <p className="admin-message admin-message--error">{upcomingError}</p>}
+          {upcomingSuccess && <p className="admin-message admin-message--success">{upcomingSuccess}</p>}
+
+          <ul className="upcoming-admin-list">
+            {upcomingProducts.map((upcomingItem) => (
+              <li key={upcomingItem.id} className="upcoming-admin-item">
+                <div>
+                  <p className="upcoming-admin-item__name">{upcomingItem.name}</p>
+                  <p className="upcoming-admin-item__meta">
+                    {upcomingItem.category} · {upcomingItem.launchWindow}
+                  </p>
+                </div>
+                <div className="upcoming-admin-item__actions">
+                  <button
+                    type="button"
+                    className="upcoming-admin-edit"
+                    onClick={() => handleStartEditUpcomingProduct(upcomingItem)}
+                  >
+                    Editar
+                  </button>
+                  <button
+                    type="button"
+                    className="upcoming-admin-delete"
+                    onClick={() => handleDeleteUpcomingProduct(upcomingItem.id, upcomingItem.name)}
+                  >
+                    Borrar
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 
@@ -2393,6 +2660,38 @@ function App() {
           <p className="products-empty">No hay productos que coincidan con la búsqueda.</p>
         )}
       </section>
+      )}
+
+      {(isAdminStoreView || isUserStoreView) && (
+        <section className="upcoming" aria-label="Próximos lanzamientos de ropa">
+          <div className="upcoming__header">
+            <h2>Próximamente en tienda</h2>
+            <p>Estas prendas entrarán pronto al catálogo.</p>
+          </div>
+
+          <div className="upcoming__grid">
+            {upcomingProducts.map((upcomingItem) => (
+              <article key={upcomingItem.id} className="upcoming-card">
+                <img
+                  src={resolveProductImageSrc(upcomingItem.image)}
+                  alt={upcomingItem.name}
+                  className="upcoming-card__image"
+                  onError={(event) => {
+                    event.currentTarget.src = resolveProductImageSrc(DEFAULT_PRODUCT_IMAGE)
+                  }}
+                />
+                <p className="upcoming-card__tag">{upcomingItem.launchWindow}</p>
+                <h3>{upcomingItem.name}</h3>
+                <p className="upcoming-card__category">Categoría: {upcomingItem.category}</p>
+                <p className="upcoming-card__note">{upcomingItem.note}</p>
+              </article>
+            ))}
+
+            {upcomingProducts.length === 0 && (
+              <p className="products-empty">No hay prendas programadas en Próximamente.</p>
+            )}
+          </div>
+        </section>
       )}
 
       {selectedProduct && (
