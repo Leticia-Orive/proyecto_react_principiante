@@ -185,7 +185,7 @@ const DEFAULT_UPCOMING_PRODUCTS = [
     category: 'Chaquetas',
     launchWindow: 'Llega en abril',
     note: 'Corte relajado y tejido fresco para entretiempo.',
-    image: '/images/chaqueta-denim.avif',
+    image: '/images/Blazer-lino-arena.webp',
   },
   {
     id: 'upcoming-2',
@@ -193,7 +193,7 @@ const DEFAULT_UPCOMING_PRODUCTS = [
     category: 'Pantalones',
     launchWindow: 'Llega en mayo',
     note: 'Tiro medio y pierna amplia para un look urbano.',
-    image: '/images/jeans-azul.avif',
+    image: '/images/Jeans-wide-fit-azul-claro.webp',
   },
   {
     id: 'upcoming-3',
@@ -201,9 +201,24 @@ const DEFAULT_UPCOMING_PRODUCTS = [
     category: 'Camisetas',
     launchWindow: 'Llega en junio',
     note: 'Algodón ligero con estampado exclusivo de temporada.',
-    image: '/images/camiseta-pato.avif',
+    image: '/images/Camiseta-print-edición-verano.jpg',
   },
 ]
+
+const UPCOMING_IMAGE_MIGRATION_BY_ID = {
+  'upcoming-1': {
+    old: '/images/chaqueta-denim.avif',
+    next: '/images/Blazer-lino-arena.webp',
+  },
+  'upcoming-2': {
+    old: '/images/jeans-azul.avif',
+    next: '/images/Jeans-wide-fit-azul-claro.webp',
+  },
+  'upcoming-3': {
+    old: '/images/camiseta-pato.avif',
+    next: '/images/Camiseta-print-edición-verano.jpg',
+  },
+}
 
 // Normaliza texto para comparar sin tildes ni mayusculas/minusculas.
 const normalizeText = (value) =>
@@ -551,14 +566,24 @@ function App() {
         return DEFAULT_UPCOMING_PRODUCTS
       }
 
-      return parsedUpcomingProducts.map((upcomingItem, index) => ({
-        id: upcomingItem.id ?? `upcoming-${index + 1}`,
-        name: upcomingItem.name?.trim() || 'Prenda próxima',
-        category: upcomingItem.category?.trim() || 'Novedades',
-        launchWindow: upcomingItem.launchWindow?.trim() || 'Próximamente',
-        note: upcomingItem.note?.trim() || 'Nueva prenda en camino.',
-        image: normalizeProductImagePath(upcomingItem.image),
-      }))
+      return parsedUpcomingProducts.map((upcomingItem, index) => {
+        const upcomingId = upcomingItem.id ?? `upcoming-${index + 1}`
+        const normalizedImage = normalizeProductImagePath(upcomingItem.image)
+        const migrationRule = UPCOMING_IMAGE_MIGRATION_BY_ID[upcomingId]
+        const image =
+          migrationRule && normalizedImage === migrationRule.old
+            ? migrationRule.next
+            : normalizedImage
+
+        return {
+          id: upcomingId,
+          name: upcomingItem.name?.trim() || 'Prenda próxima',
+          category: upcomingItem.category?.trim() || 'Novedades',
+          launchWindow: upcomingItem.launchWindow?.trim() || 'Próximamente',
+          note: upcomingItem.note?.trim() || 'Nueva prenda en camino.',
+          image,
+        }
+      })
     } catch {
       return DEFAULT_UPCOMING_PRODUCTS
     }
@@ -2404,9 +2429,29 @@ function App() {
             <input
               type="text"
               name="image"
-              placeholder="Ruta de imagen (opcional)"
+              placeholder="Ruta de imagen (ej: /images/chaqueta-denim.avif)"
               value={upcomingForm.image}
               onChange={handleUpcomingInputChange}
+            />
+            <select
+              name="image"
+              value={upcomingForm.image.startsWith('data:image/') ? '' : normalizeProductImagePath(upcomingForm.image)}
+              onChange={handleUpcomingInputChange}
+            >
+              <option value="">Elegir imagen existente</option>
+              {AVAILABLE_PRODUCT_IMAGES.map((imagePath) => (
+                <option key={imagePath} value={imagePath}>
+                  {imagePath.replace('/images/', '')}
+                </option>
+              ))}
+            </select>
+            <img
+              src={resolveProductImageSrc(upcomingForm.image)}
+              alt="Vista previa de Próximamente"
+              className="upcoming-admin-preview"
+              onError={(event) => {
+                event.currentTarget.src = resolveProductImageSrc(DEFAULT_PRODUCT_IMAGE)
+              }}
             />
             <textarea
               name="note"

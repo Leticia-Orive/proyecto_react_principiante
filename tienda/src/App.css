@@ -297,11 +297,20 @@
 }
 
 .upcoming-admin-form input,
+.upcoming-admin-form select,
 .upcoming-admin-form textarea {
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   padding: 0.5rem 0.65rem;
   font: inherit;
+}
+
+.upcoming-admin-preview {
+  width: min(180px, 100%);
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
 }
 
 .upcoming-admin-form button {
