@@ -1,0 +1,145 @@
+<app-auth *ngIf="!currentUser"></app-auth>
+
+<!-- Edit product page (admin only) -->
+<main *ngIf="currentUser && isAdmin && currentView === 'edit-product'" class="store">
+  <header class="store__header">
+    <div class="store__top">
+      <h1>Editar producto</h1>
+      <div class="store__user-actions">
+        <span class="admin-badge">Admin</span>
+        <button type="button" class="logout-button" (click)="onLogout()">Cerrar sesión</button>
+      </div>
+    </div>
+    <p>Estás en la página de edición de producto.</p>
+  </header>
+
+  <section class="admin-panel admin-edit-page" aria-label="Edición de producto">
+    <button type="button" class="admin-edit-page__back" (click)="cancelEditProduct()">Volver al panel</button>
+
+    <div class="admin-form admin-form--editing">
+      <input type="text" placeholder="Nombre del producto" [(ngModel)]="productForm.name" />
+      <input type="text" placeholder="Categoría" [(ngModel)]="productForm.category" />
+      <input type="number" placeholder="Precio" min="0" step="0.01" [(ngModel)]="productForm.price" />
+      <input type="number" placeholder="Stock disponible" min="0" step="1" [(ngModel)]="productForm.stock" />
+      <input type="text" placeholder="Tallas separadas por coma (ej: S, M, L, XL)" [(ngModel)]="productForm.size" />
+      <input type="text" placeholder="Ruta de imagen (ej: /images/ropa.jpg)" [(ngModel)]="productForm.image" />
+      <select [(ngModel)]="productForm.image">
+        <option value="">Elegir imagen existente</option>
+        <option *ngFor="let img of availableProductImages" [value]="img">{{ img.replace('/images/', '') }}</option>
+      </select>
+      <img [src]="productForm.image || '/images/camiseta-blanca.jpg'" alt="Vista previa" class="product-image" style="width:min(180px,100%);aspect-ratio:3/4;object-fit:cover;border-radius:10px;" (error)="$event.target['src']='/images/camiseta-blanca.jpg'" />
+      <button type="button" (click)="saveEditProduct()">Guardar cambios</button>
+      <button type="button" class="admin-cancel-button" (click)="cancelEditProduct()">Cancelar edición</button>
+    </div>
+
+    <p *ngIf="productError" class="admin-message admin-message--error">{{ productError }}</p>
+    <p *ngIf="productSuccess" class="admin-message admin-message--success">{{ productSuccess }}</p>
+  </section>
+</main>
+
+<main *ngIf="currentUser && !(isAdmin && currentView === 'edit-product')" class="store">
+  <header class="store__header">
+    <div class="store__top">
+      <h1>Tienda de Ropa</h1>
+      <div class="store__user-actions">
+        <span *ngIf="isAdmin" class="admin-badge">Admin</span>
+        <button
+          *ngIf="isAdmin"
+          type="button"
+          class="status-badge status-badge--button"
+          [class.status-badge--active]="currentView === 'messages'"
+          (click)="openMessagesView()"
+        >
+          Pendientes: {{ pendingRequestsCount }}
+        </button>
+        <button
+          type="button"
+          class="status-badge status-badge--button"
+          [class.status-badge--active]="currentView === 'cart'"
+          (click)="openCartView()"
+        >
+          Carrito: {{ totalItems }}
+        </button>
+        <button
+          *ngIf="!isAdmin"
+          type="button"
+          class="status-badge status-badge--button"
+          [class.status-badge--active]="currentView === 'messages'"
+          (click)="openMessagesView()"
+        >
+          Mensajes: {{ answeredRequestsCount }}
+        </button>
+        <button
+          *ngIf="currentView !== 'store'"
+          type="button"
+          class="status-badge status-badge--button"
+          (click)="openStoreView()"
+        >
+          Volver a tienda
+        </button>
+        <button type="button" class="logout-button" (click)="onLogout()">Cerrar sesión</button>
+      </div>
+    </div>
+    <p>Bienvenida, {{ currentUser.name }}. Explora nuestros productos y filtra por categoría.</p>
+  </header>
+
+  <!-- Admin panel: Próximamente CRUD -->
+  <section *ngIf="isAdmin && currentView === 'store'" class="admin-panel" aria-label="Gestión de productos">
+    <h2>Panel de administrador</h2>
+    <p class="admin-message">Usa los botones Editar y Borrar en cada producto para gestionarlos.</p>
+
+    <form class="upcoming-admin-form" (ngSubmit)="submitUpcomingForm()">
+      <h3>Gestionar Próximamente</h3>
+      <input type="text" placeholder="Nombre de la prenda" [(ngModel)]="upcomingForm.name" name="upName" />
+      <input type="text" placeholder="Categoría" [(ngModel)]="upcomingForm.category" name="upCat" />
+      <input type="text" placeholder="Ej: Llega en julio" [(ngModel)]="upcomingForm.launchWindow" name="upLaunch" />
+      <input type="text" placeholder="Ruta de imagen (ej: /images/chaqueta-denim.avif)" [(ngModel)]="upcomingForm.image" name="upImg" />
+      <select [(ngModel)]="upcomingForm.image" name="upImgSelect">
+        <option value="">Elegir imagen existente</option>
+        <option *ngFor="let img of availableProductImages" [value]="img">{{ img.replace('/images/', '') }}</option>
+      </select>
+      <img [src]="upcomingForm.image || '/images/camiseta-blanca.jpg'" alt="Vista previa de Próximamente" class="upcoming-admin-preview" (error)="$event.target['src']='/images/camiseta-blanca.jpg'" />
+      <textarea placeholder="Descripción breve" rows="2" [(ngModel)]="upcomingForm.note" name="upNote"></textarea>
+      <button type="submit">
+        {{ editingUpcomingId ? 'Guardar cambios de Próximamente' : 'Añadir a Próximamente' }}
+      </button>
+      <button *ngIf="editingUpcomingId" type="button" class="upcoming-admin-cancel" (click)="cancelEditUpcoming()">
+        Cancelar edición
+      </button>
+    </form>
+
+    <p *ngIf="upcomingError" class="admin-message admin-message--error">{{ upcomingError }}</p>
+    <p *ngIf="upcomingSuccess" class="admin-message admin-message--success">{{ upcomingSuccess }}</p>
+
+    <ul class="upcoming-admin-list">
+      <li *ngFor="let item of upcomingProducts" class="upcoming-admin-item">
+        <div>
+          <p class="upcoming-admin-item__name">{{ item.name }}</p>
+          <p class="upcoming-admin-item__meta">{{ item.category }} · {{ item.launchWindow }}</p>
+        </div>
+        <div class="upcoming-admin-item__actions">
+          <button type="button" class="upcoming-admin-edit" (click)="startEditUpcoming(item)">Editar</button>
+          <button type="button" class="upcoming-admin-delete" (click)="deleteUpcoming(item.id, item.name)">Borrar</button>
+        </div>
+      </li>
+    </ul>
+  </section>
+
+  <app-product-list *ngIf="currentView === 'store'" [isAdmin]="isAdmin" (addedToCart)="onProductAddedToCart()" (editProduct)="onEditProduct($event)"></app-product-list>
+  <app-cart *ngIf="currentView === 'cart'"></app-cart>
+  <app-requests *ngIf="currentView === 'messages'"></app-requests>
+
+  <div *ngIf="showReplyNotice" class="reply-notice" [class.reply-notice--closing]="isReplyNoticeClosing">
+    Tienes una nueva respuesta del administrador.
+    <button type="button" class="reply-notice__close" (click)="closeReplyNotice()" aria-label="Cerrar aviso">
+      ×
+    </button>
+  </div>
+
+  <div *ngIf="showCartNotice" class="cart-notice" [class.cart-notice--closing]="isCartNoticeClosing">
+    Producto añadido al carrito.
+    <button type="button" class="cart-notice__close" (click)="closeCartNotice()" aria-label="Cerrar aviso">
+      ×
+    </button>
+  </div>
+</main>

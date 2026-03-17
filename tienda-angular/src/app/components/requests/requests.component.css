@@ -1,0 +1,285 @@
+.request-section {
+  margin-top: 1.25rem;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.request-section h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: #111827;
+}
+
+.request-section > p {
+  margin: 0.4rem 0 0;
+  color: #4b5563;
+}
+
+.request-form {
+  margin-top: 0.8rem;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.request-form label {
+  display: grid;
+  gap: 0.3rem;
+  color: #334155;
+}
+
+.request-form select,
+.request-form input,
+.request-form textarea {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0.5rem 0.65rem;
+  font: inherit;
+}
+
+.request-form select:focus,
+.request-form input:focus,
+.request-form textarea:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.request-form button {
+  justify-self: start;
+  border: 1px solid #2563eb;
+  background: #2563eb;
+  color: #ffffff;
+  border-radius: 8px;
+  padding: 0.45rem 0.8rem;
+  cursor: pointer;
+}
+
+.request-form button:hover {
+  background: #1d4ed8;
+}
+
+.request-message {
+  margin: 0.55rem 0 0;
+}
+
+.request-message--error {
+  color: #b91c1c;
+}
+
+.request-message--success {
+  color: #15803d;
+}
+
+.my-requests {
+  margin-top: 1rem;
+  border-top: 1px dashed #cbd5e1;
+  padding-top: 0.9rem;
+}
+
+.my-requests h3 {
+  margin: 0;
+  color: #111827;
+}
+
+.my-requests__empty {
+  margin: 0.6rem 0 0;
+  color: #64748b;
+}
+
+.my-requests__list {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.my-requests__item {
+  border: 1px solid #dbeafe;
+  border-radius: 10px;
+  background: #f8fbff;
+  padding: 0.7rem;
+}
+
+.my-requests__subject {
+  margin: 0;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.my-requests__meta {
+  margin: 0.35rem 0 0;
+  color: #475569;
+}
+
+.my-requests__message {
+  margin: 0.35rem 0 0;
+  color: #475569;
+}
+
+.my-requests__reply {
+  margin-top: 0.55rem;
+  border: 1px solid #bbf7d0;
+  background: #f0fdf4;
+  border-radius: 8px;
+  padding: 0.55rem;
+}
+
+.my-requests__reply-title {
+  margin: 0;
+  color: #166534;
+  font-weight: 600;
+}
+
+.my-requests__reply-message {
+  margin: 0.35rem 0 0;
+  color: #166534;
+}
+
+.my-requests__reply-meta {
+  margin: 0.35rem 0 0;
+  color: #166534;
+}
+
+.my-requests__pending {
+  margin: 0.35rem 0 0;
+  color: #475569;
+}
+
+/* Admin Requests */
+.admin-requests {
+  margin-top: 1rem;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.admin-requests h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: #111827;
+}
+
+.admin-requests__empty {
+  margin: 0.65rem 0 0;
+  color: #64748b;
+}
+
+.admin-requests__list {
+  list-style: none;
+  margin: 0.8rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.admin-requests__item {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 0.75rem;
+}
+
+.admin-requests__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.admin-requests__subject {
+  margin: 0;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.admin-requests__type {
+  text-transform: capitalize;
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+  font-size: 0.82rem;
+}
+
+.admin-requests__type.type-pedido {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.admin-requests__type.type-comentario {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.admin-requests__meta {
+  margin: 0.25rem 0 0;
+  color: #64748b;
+}
+
+.admin-requests__message {
+  margin: 0.45rem 0 0;
+  color: #334155;
+}
+
+.admin-requests__reply-form {
+  margin-top: 0.65rem;
+  display: grid;
+  gap: 0.3rem;
+  color: #334155;
+}
+
+.admin-requests__reply-form label {
+  font-weight: 600;
+}
+
+.admin-requests__reply-form textarea {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0.5rem 0.6rem;
+  font: inherit;
+}
+
+.admin-requests__reply-form textarea:focus {
+  outline: none;
+  border-color: #2563eb;
+}
+
+.admin-requests__actions {
+  margin-top: 0.45rem;
+  display: flex;
+  gap: 0.55rem;
+}
+
+.reply-button,
+.delete-button {
+  border-radius: 8px;
+  padding: 0.35rem 0.7rem;
+  cursor: pointer;
+}
+
+.reply-button {
+  border: 1px solid #16a34a;
+  background: #16a34a;
+  color: #ffffff;
+}
+
+.reply-button:hover {
+  border-color: #15803d;
+  background: #15803d;
+}
+
+.delete-button {
+  border: 1px solid #fecaca;
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.delete-button:hover {
+  border-color: #fb7185;
+  background: #ffe4e6;
+}

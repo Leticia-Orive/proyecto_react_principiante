@@ -1,0 +1,112 @@
+<ng-container *ngIf="!isAdmin; else adminView">
+  <section class="request-section" aria-label="Comentarios y pedidos especiales">
+    <h2>¿No encuentras lo que buscas?</h2>
+    <p>Dejanos un comentario o un pedido especial para que el administrador lo revise.</p>
+
+    <form class="request-form" (ngSubmit)="onCreateRequest($event)">
+      <label>
+        Tipo
+        <select name="type" [value]="requestForm.type" (change)="onRequestInputChange($event)">
+          <option value="pedido">Pedido especial</option>
+          <option value="comentario">Comentario</option>
+        </select>
+      </label>
+
+      <label>
+        Asunto
+        <input
+          type="text"
+          name="subject"
+          placeholder="Ej: Busco chaqueta roja talla M"
+          [value]="requestForm.subject"
+          (change)="onRequestInputChange($event)"
+        />
+      </label>
+
+      <label>
+        Detalle
+        <textarea
+          name="message"
+          rows="3"
+          placeholder="Cuentanos que necesitas o tu comentario"
+          [value]="requestForm.message"
+          (change)="onRequestInputChange($event)"
+        ></textarea>
+      </label>
+
+      <button type="submit">Enviar solicitud</button>
+    </form>
+
+    <div *ngIf="requestError" class="request-message request-message--error">
+      {{ requestError }}
+    </div>
+    <div *ngIf="requestSuccess" class="request-message request-message--success">
+      {{ requestSuccess }}
+    </div>
+
+    <div class="my-requests">
+      <h3>Mis solicitudes y respuestas</h3>
+      <div *ngIf="myRequests.length === 0" class="my-requests__empty">
+        Aun no has enviado solicitudes.
+      </div>
+      <ul *ngIf="myRequests.length > 0" class="my-requests__list">
+        <li *ngFor="let req of myRequests" class="my-requests__item">
+          <p class="my-requests__subject">{{ req.subject }}</p>
+          <p class="my-requests__meta">Enviado el {{ formatDateTime(req.createdAt) }}</p>
+          <p class="my-requests__message">{{ req.message }}</p>
+
+          <div *ngIf="req.adminReply; else pending" class="my-requests__reply">
+            <p class="my-requests__reply-title">Respuesta del administrador</p>
+            <p class="my-requests__reply-message">{{ req.adminReply }}</p>
+            <p class="my-requests__reply-meta">Respondido el {{ formatDateTime(req.repliedAt) }}</p>
+          </div>
+
+          <ng-template #pending>
+            <p class="my-requests__pending">Pendiente de respuesta del administrador.</p>
+          </ng-template>
+        </li>
+      </ul>
+    </div>
+  </section>
+</ng-container>
+
+<ng-template #adminView>
+  <section class="admin-requests" aria-label="Solicitudes de clientes">
+    <h2>Solicitudes de clientes</h2>
+
+    <div *ngIf="customerRequests.length === 0" class="admin-requests__empty">
+      No hay solicitudes pendientes.
+    </div>
+
+    <ul *ngIf="customerRequests.length > 0" class="admin-requests__list">
+      <li *ngFor="let req of customerRequests" class="admin-requests__item">
+        <div class="admin-requests__header">
+          <p class="admin-requests__subject">{{ req.subject }}</p>
+          <span class="admin-requests__type" [ngClass]="'type-' + req.type">
+            {{ req.type }}
+          </span>
+        </div>
+        <p class="admin-requests__meta">Recibida el {{ formatDateTime(req.createdAt) }}</p>
+        <p class="admin-requests__message">{{ req.message }}</p>
+
+        <div class="admin-requests__reply-form">
+          <label [for]="'reply-' + req.id">Respuesta:</label>
+          <textarea
+            [id]="'reply-' + req.id"
+            placeholder="Escribe tu respuesta..."
+            [(ngModel)]="adminReplies[req.id]"
+            rows="3"
+          ></textarea>
+          <div class="admin-requests__actions">
+            <button type="button" class="reply-button" (click)="onReplyRequest(req.id)">
+              Responder
+            </button>
+            <button type="button" class="delete-button" (click)="onDeleteRequest(req.id)">
+              Eliminar
+            </button>
+          </div>
+        </div>
+      </li>
+    </ul>
+  </section>
+</ng-template>

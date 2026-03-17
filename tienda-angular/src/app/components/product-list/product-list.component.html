@@ -1,0 +1,168 @@
+<section class="categories" aria-label="Categorías de producto">
+  <button
+    type="button"
+    class="category-button"
+    [class.category-button--active]="selectedCategory === 'Todas'"
+    (click)="onCategoryChange('Todas')"
+  >
+    Todas
+  </button>
+  <button
+    *ngFor="let cat of categories"
+    type="button"
+    class="category-button"
+    [class.category-button--active]="selectedCategory === cat"
+    (click)="onCategoryChange(cat)"
+  >
+    {{ cat }}
+  </button>
+</section>
+
+<section class="sort" aria-label="Orden de productos">
+  <label for="sort-order">Ordenar por precio</label>
+  <select id="sort-order" [(ngModel)]="sortOrder" (change)="onSortChange(sortOrder)">
+    <option value="default">Sin ordenar</option>
+    <option value="price-asc">Menor a mayor</option>
+    <option value="price-desc">Mayor a menor</option>
+  </select>
+  <button type="button" class="reset-filters-button" (click)="resetFilters()">Restablecer filtros</button>
+  <input
+    type="text"
+    [(ngModel)]="searchQuery"
+    (input)="onSearchChange(searchQuery)"
+    placeholder="Buscar productos..."
+    aria-label="Buscar productos"
+  />
+</section>
+
+<div *ngIf="showFiltersNotice" class="filters-notice" [class.filters-notice--closing]="isFiltersNoticeClosing">
+  Filtros restablecidos.
+  <button type="button" class="filters-notice__close" (click)="closeFiltersNotice()" aria-label="Cerrar aviso">
+    ×
+  </button>
+</div>
+
+<section class="products" aria-label="Listado de productos">
+  <div *ngIf="filteredProducts.length === 0" class="products-empty">
+    No hay productos que coincidan con la búsqueda.
+  </div>
+
+  <article *ngFor="let product of filteredProducts" class="product-card" (click)="openProductModal(product)">
+    <img class="product-image" [src]="product.image" [alt]="product.name" (error)="onImageError($event)" />
+    <h2>{{ product.name }}</h2>
+    <p class="product-meta">{{ product.category }} · Tallas: {{ product.availableSizes.join(' - ') }}</p>
+    <p class="product-price">${{ product.price.toFixed(2) }}</p>
+    <div class="product-card__actions">
+      <button type="button" class="details-button" (click)="$event.stopPropagation()">Ver detalles</button>
+      <ng-container *ngIf="!isAdmin" (click)="$event.stopPropagation()">
+        <button
+          type="button"
+          class="buy-now-button"
+          [disabled]="product.stock <= 0"
+          (click)="onBuyNow(product)"
+        >
+          {{ product.stock <= 0 ? 'Agotado' : 'Comprar ahora' }}
+        </button>
+      </ng-container>
+      <button
+        type="button"
+        class="add-button"
+        [disabled]="product.stock <= 0"
+        (click)="$event.stopPropagation(); onOpenAddToCartModal(product, product.availableSizes[0])"
+      >
+        {{ product.stock <= 0 ? 'Agotado' : 'Agregar al carrito' }}
+      </button>
+      <ng-container *ngIf="isAdmin" (click)="$event.stopPropagation()">
+        <button type="button" class="admin-edit-button" (click)="$event.stopPropagation(); onEditProduct(product)">Editar</button>
+        <button type="button" class="admin-delete-button" (click)="$event.stopPropagation(); onDeleteProduct(product)">Borrar</button>
+      </ng-container>
+    </div>
+  </article>
+</section>
+
+<!-- Próximamente section -->
+<section class="upcoming" aria-label="Próximos lanzamientos de ropa">
+  <div class="upcoming__header">
+    <h2>Próximamente en tienda</h2>
+    <p>Estas prendas entrarán pronto al catálogo.</p>
+  </div>
+  <div class="upcoming__grid">
+    <article *ngFor="let item of upcomingProducts" class="upcoming-card">
+      <img class="upcoming-card__image" [src]="item.image" [alt]="item.name" (error)="onImageError($event)" />
+      <p class="upcoming-card__tag">{{ item.launchWindow }}</p>
+      <h3>{{ item.name }}</h3>
+      <p class="upcoming-card__category">Categoría: {{ item.category }}</p>
+      <p class="upcoming-card__note">{{ item.note }}</p>
+    </article>
+    <p *ngIf="upcomingProducts.length === 0" class="products-empty">No hay prendas programadas en Próximamente.</p>
+  </div>
+</section>
+
+<!-- Product Modal -->
+<div *ngIf="selectedProduct" class="product-modal" (click)="closeProductModal()">
+  <div class="product-modal__content" (click)="$event.stopPropagation()">
+    <button type="button" class="product-modal__close" (click)="closeProductModal()">×</button>
+    <img
+      class="product-modal__image"
+      [src]="selectedProduct.image"
+      [alt]="selectedProduct.name"
+      (error)="onImageError($event)"
+    />
+
+    <h3>{{ selectedProduct.name }}</h3>
+    <p class="product-modal__description">{{ selectedProduct.description }}</p>
+    <p class="product-modal__price">${{ selectedProduct.price.toFixed(2) }}</p>
+
+    <div class="size-selector">
+      <label for="size">Selecciona talla:</label>
+      <select id="size" [(ngModel)]="selectedSize">
+        <option value="">-- Elige una talla --</option>
+        <option *ngFor="let size of selectedProduct.availableSizes" [value]="size">{{ size }}</option>
+      </select>
+    </div>
+
+    <div class="size-selector">
+      <label for="quantity">Cantidad:</label>
+      <input id="quantity" type="number" min="1" [(ngModel)]="quantityToAdd" />
+    </div>
+
+    <div class="product-card__actions">
+      <button *ngIf="!successMessage" type="button" class="add-button" (click)="addToCart()">
+        Agregar al carrito
+      </button>
+      <p *ngIf="successMessage" class="auth-success">{{ successMessage }}</p>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de cantidad para agregar al carrito -->
+<div *ngIf="cartModalProduct" class="product-modal" (click)="onCloseAddToCartModal()">
+  <div class="product-modal__content cart-quantity-modal" (click)="$event.stopPropagation()">
+    <button type="button" class="product-modal__close" (click)="onCloseAddToCartModal()">×</button>
+    <h3>{{ cartModalProduct.name }}</h3>
+    <p class="product-modal__description">Talla: {{ cartModalSize }}</p>
+
+    <div class="cart-quantity-form">
+      <label for="quantity">¿Cuántas unidades quieres agregar?</label>
+      <div class="quantity-input-group">
+        <button type="button" class="quantity-button" (click)="decreaseQuantity()">−</button>
+        <input
+          id="quantity"
+          type="number"
+          min="1"
+          [(ngModel)]="cartModalQuantity"
+          class="quantity-input"
+        />
+        <button type="button" class="quantity-button" (click)="increaseQuantity()">+</button>
+      </div>
+      <p class="cart-quantity-help">Máximo disponible: {{ cartModalProduct.stock }} unidad(es)</p>
+    </div>
+
+    <div class="cart-quantity-actions">
+      <button type="button" class="add-button" (click)="onConfirmAddToCart()">Agregar al carrito</button>
+      <button type="button" class="product-modal__close-button" (click)="onCloseAddToCartModal()">Cancelar</button>
+    </div>
+
+    <p *ngIf="cartModalError" class="cart-modal-error">{{ cartModalError }}</p>
+  </div>
+</div>

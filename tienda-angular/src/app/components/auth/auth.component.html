@@ -1,0 +1,50 @@
+<main class="auth-page">
+  <section class="auth-card" aria-label="Autenticación de usuario">
+    <h1>Tienda de Ropa</h1>
+    <p>{{ isLoginMode ? 'Inicia sesión para continuar.' : 'Crea una cuenta para empezar.' }}</p>
+    <p class="auth-admin-hint">Admin: admin@tienda.com / Admin123!</p>
+
+    <div class="auth-tabs">
+      <button
+        type="button"
+        class="auth-tab"
+        [class.auth-tab--active]="isLoginMode"
+        (click)="isLoginMode = true"
+      >
+        Login
+      </button>
+      <button
+        type="button"
+        class="auth-tab"
+        [class.auth-tab--active]="!isLoginMode"
+        (click)="isLoginMode = false"
+      >
+        Registro
+      </button>
+    </div>
+
+    <form class="auth-form" (ngSubmit)="onSubmit()">
+      <label *ngIf="!isLoginMode" class="auth-field">
+        Nombre
+        <input type="text" [(ngModel)]="name" name="name" placeholder="Tu nombre" />
+      </label>
+
+      <label class="auth-field">
+        Correo
+        <input type="email" [(ngModel)]="email" name="email" placeholder="correo@ejemplo.com" />
+      </label>
+
+      <label class="auth-field">
+        Contraseña
+        <input type="password" [(ngModel)]="password" name="password" placeholder="********" />
+      </label>
+
+      <p *ngIf="error" class="auth-error">{{ error }}</p>
+      <p *ngIf="success" class="auth-success">{{ success }}</p>
+
+      <button type="submit" class="auth-submit">
+        {{ isLoginMode ? 'Entrar' : 'Crear cuenta' }}
+      </button>
+    </form>
+  </section>
+</main>
